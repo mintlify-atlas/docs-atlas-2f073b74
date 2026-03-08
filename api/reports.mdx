@@ -1,0 +1,260 @@
+---
+title: "Reports"
+description: "Generate analytical reports on parking operations"
+---
+
+The Reports API provides analytical insights into parking operations, including income, occupation, and customer behavior.
+
+## Daily Income Report
+
+<api method="GET" endpoint="/api/reports/daily-income" />
+
+Generate a report showing daily income over a specified date range.
+
+### Query Parameters
+
+<ParamField query="startDate" type="string" required>
+  Start date for the report in ISO 8601 format (e.g., "2026-03-01T00:00:00Z").
+</ParamField>
+
+<ParamField query="endDate" type="string" required>
+  End date for the report in ISO 8601 format (e.g., "2026-03-08T00:00:00Z").
+</ParamField>
+
+### Response
+
+Returns an array of daily income records.
+
+<ResponseField name="[]" type="array">
+  Array of daily income objects:
+  
+  <Expandable title="Daily Income Object">
+    <ResponseField name="Date" type="string">
+      Date in YYYY-MM-DD format.
+    </ResponseField>
+    
+    <ResponseField name="TotalAmount" type="number">
+      Total income for that day.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET "https://api.crudpark.com/api/reports/daily-income?startDate=2026-03-01T00:00:00Z&endDate=2026-03-08T00:00:00Z"
+```
+
+```json Response
+[
+  {
+    "Date": "2026-03-01",
+    "TotalAmount": 245.50
+  },
+  {
+    "Date": "2026-03-02",
+    "TotalAmount": 312.75
+  },
+  {
+    "Date": "2026-03-03",
+    "TotalAmount": 189.00
+  },
+  {
+    "Date": "2026-03-04",
+    "TotalAmount": 298.25
+  },
+  {
+    "Date": "2026-03-05",
+    "TotalAmount": 401.50
+  },
+  {
+    "Date": "2026-03-06",
+    "TotalAmount": 456.00
+  },
+  {
+    "Date": "2026-03-07",
+    "TotalAmount": 378.75
+  },
+  {
+    "Date": "2026-03-08",
+    "TotalAmount": 234.50
+  }
+]
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully generated report
+- `400 Bad Request` - Invalid date range (startDate must be before endDate)
+
+<Warning>
+  The `startDate` must not be later than the `endDate`. The API will return a 400 error if this validation fails.
+</Warning>
+
+---
+
+## Membership vs Guest Report
+
+<api method="GET" endpoint="/api/reports/membership-vs-guest" />
+
+Generate a report comparing income and entries between membership holders and guest visitors.
+
+### Query Parameters
+
+<ParamField query="startDate" type="string" required>
+  Start date for the report in ISO 8601 format.
+</ParamField>
+
+<ParamField query="endDate" type="string" required>
+  End date for the report in ISO 8601 format.
+</ParamField>
+
+### Response
+
+<ResponseField name="GuestIncome" type="number">
+  Total income generated from guest (non-member) parking.
+</ResponseField>
+
+<ResponseField name="GuestEntries" type="integer">
+  Number of parking entries by guests.
+</ResponseField>
+
+<ResponseField name="MembershipEntries" type="integer">
+  Number of parking entries by membership holders.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET "https://api.crudpark.com/api/reports/membership-vs-guest?startDate=2026-03-01T00:00:00Z&endDate=2026-03-08T00:00:00Z"
+```
+
+```json Response
+{
+  "GuestIncome": 1845.25,
+  "GuestEntries": 142,
+  "MembershipEntries": 67
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully generated report
+- `400 Bad Request` - Invalid date range
+
+<Note>
+  Membership entries do not generate direct income as members pay upfront. This report helps you understand the balance between membership and guest usage.
+</Note>
+
+---
+
+## Occupation Report
+
+<api method="GET" endpoint="/api/reports/occupation" />
+
+Generate a report showing average parking lot occupation and stay duration.
+
+### Query Parameters
+
+<ParamField query="startDate" type="string" required>
+  Start date for the report in ISO 8601 format.
+</ParamField>
+
+<ParamField query="endDate" type="string" required>
+  End date for the report in ISO 8601 format.
+</ParamField>
+
+### Response
+
+<ResponseField name="AverageOccupationPercentage" type="number">
+  Average occupation percentage during the period (0-100).
+</ResponseField>
+
+<ResponseField name="AverageStayDuration" type="string">
+  Average stay duration in HH:MM:SS format.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET "https://api.crudpark.com/api/reports/occupation?startDate=2026-03-01T00:00:00Z&endDate=2026-03-08T00:00:00Z"
+```
+
+```json Response
+{
+  "AverageOccupationPercentage": 67.5,
+  "AverageStayDuration": "03:27:15"
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully generated report
+- `400 Bad Request` - Invalid date range
+
+<Note>
+  The occupation percentage is calculated based on your parking lot's total capacity. The average stay duration includes all completed parking sessions within the specified period.
+</Note>
+
+---
+
+## Export Daily Income to CSV
+
+<api method="GET" endpoint="/api/reports/daily-income/export/csv" />
+
+Export the daily income report as a CSV file.
+
+### Query Parameters
+
+<ParamField query="startDate" type="string" required>
+  Start date for the report in ISO 8601 format.
+</ParamField>
+
+<ParamField query="endDate" type="string" required>
+  End date for the report in ISO 8601 format.
+</ParamField>
+
+### Response
+
+Returns a CSV file with the following format:
+
+- **Content-Type**: `text/csv`
+- **Filename**: `IngresosDiarios_YYYYMMDD_a_YYYYMMDD.csv`
+
+The CSV contains columns for Date and TotalAmount.
+
+<CodeGroup>
+
+```bash Request
+curl -X GET "https://api.crudpark.com/api/reports/daily-income/export/csv?startDate=2026-03-01T00:00:00Z&endDate=2026-03-08T00:00:00Z" \
+  -o daily_income.csv
+```
+
+```csv Response
+Date,TotalAmount
+2026-03-01,245.50
+2026-03-02,312.75
+2026-03-03,189.00
+2026-03-04,298.25
+2026-03-05,401.50
+2026-03-06,456.00
+2026-03-07,378.75
+2026-03-08,234.50
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully generated CSV file
+- `400 Bad Request` - Invalid date range
+
+<Note>
+  The CSV file is automatically named with the date range in the format `IngresosDiarios_YYYYMMDD_a_YYYYMMDD.csv`. This makes it easy to organize exported reports.
+</Note>

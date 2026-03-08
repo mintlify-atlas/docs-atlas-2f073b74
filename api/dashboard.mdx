@@ -1,0 +1,123 @@
+---
+title: "Dashboard"
+description: "Retrieve real-time dashboard metrics"
+---
+
+The Dashboard API provides real-time metrics and key performance indicators for parking operations.
+
+## Get Dashboard Metrics
+
+<api method="GET" endpoint="/api/dashboard/metrics" />
+
+Retrieve current dashboard metrics including occupation, income, and membership statistics.
+
+### Response
+
+<ResponseField name="VehiclesCurrentlyInside" type="integer">
+  Number of vehicles currently parked in the lot.
+</ResponseField>
+
+<ResponseField name="OccupationPercentage" type="number">
+  Current occupation percentage (0-100) based on total parking capacity.
+</ResponseField>
+
+<ResponseField name="IncomeToday" type="number">
+  Total income generated today from parking fees.
+</ResponseField>
+
+<ResponseField name="MembershipsActive" type="integer">
+  Number of currently active memberships.
+</ResponseField>
+
+<ResponseField name="MembershipsExpiringSoon" type="integer">
+  Number of memberships expiring within the next 7-30 days (configurable threshold).
+</ResponseField>
+
+<ResponseField name="MembershipsExpired" type="integer">
+  Number of memberships that have expired but not yet been renewed or deleted.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/dashboard/metrics
+```
+
+```json Response
+{
+  "VehiclesCurrentlyInside": 42,
+  "OccupationPercentage": 67.5,
+  "IncomeToday": 234.50,
+  "MembershipsActive": 38,
+  "MembershipsExpiringSoon": 5,
+  "MembershipsExpired": 2
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved dashboard metrics
+
+<Note>
+  Dashboard metrics are computed in real-time based on current parking sessions, transactions, and membership records. This endpoint is optimized for frequent polling.
+</Note>
+
+---
+
+## Usage Examples
+
+### Monitoring Occupation Levels
+
+Use the dashboard metrics to monitor parking lot occupation and trigger alerts when capacity is reached:
+
+```javascript
+async function checkOccupation() {
+  const response = await fetch('https://api.crudpark.com/api/dashboard/metrics');
+  const metrics = await response.json();
+  
+  if (metrics.OccupationPercentage > 90) {
+    console.log('Warning: Parking lot is almost full!');
+  }
+  
+  return metrics;
+}
+```
+
+### Tracking Daily Revenue
+
+Monitor today's income in real-time:
+
+```python
+import requests
+
+def get_today_income():
+    response = requests.get('https://api.crudpark.com/api/dashboard/metrics')
+    metrics = response.json()
+    return metrics['IncomeToday']
+
+income = get_today_income()
+print(f"Today's income: ${income:.2f}")
+```
+
+### Membership Renewal Reminders
+
+Identify memberships that need attention:
+
+```javascript
+async function getMembershipAlerts() {
+  const response = await fetch('https://api.crudpark.com/api/dashboard/metrics');
+  const metrics = await response.json();
+  
+  return {
+    expiringSoon: metrics.MembershipsExpiringSoon,
+    expired: metrics.MembershipsExpired,
+    needsAttention: metrics.MembershipsExpiringSoon + metrics.MembershipsExpired
+  };
+}
+```
+
+<Warning>
+  The `MembershipsExpiringSoon` count may vary based on your system's threshold configuration. Check with your administrator to understand the exact timeframe.
+</Warning>

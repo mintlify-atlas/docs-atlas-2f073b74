@@ -1,0 +1,176 @@
+---
+title: 'API Overview'
+description: 'Overview of the CrudPark API endpoints and conventions'
+---
+
+## Base URL
+
+The CrudPark API is a RESTful API built with ASP.NET Core. The base URL varies by environment:
+
+- **Development (HTTP)**: `http://localhost:5268`
+- **Development (HTTPS)**: `https://localhost:7223`
+
+<Note>
+All API endpoints are prefixed with `/api/` and use the controller name convention (e.g., `/api/memberships`, `/api/operators`).
+</Note>
+
+## Response Format
+
+All API responses are returned in JSON format. The API uses standard HTTP status codes to indicate success or failure.
+
+### Success Response Example
+
+```json
+{
+  "membershipId": 1,
+  "customerId": 123,
+  "startDate": "2026-03-08T00:00:00Z",
+  "endDate": "2027-03-08T00:00:00Z",
+  "status": "Active"
+}
+```
+
+## HTTP Status Codes
+
+The API uses the following HTTP status codes:
+
+| Status Code | Meaning | Usage |
+|------------|---------|-------|
+| `200 OK` | Success | Returned for successful GET, PUT requests |
+| `201 Created` | Resource created | Returned for successful POST requests |
+| `204 No Content` | Success with no body | Returned for successful DELETE requests |
+| `400 Bad Request` | Invalid request | Validation errors or malformed requests |
+| `404 Not Found` | Resource not found | The requested resource does not exist |
+| `409 Conflict` | Conflict | Business logic constraint violations |
+| `500 Internal Server Error` | Server error | Unexpected server-side errors |
+
+### Error Response Format
+
+Validation errors return a standard ModelState error format:
+
+```json
+{
+  "errors": {
+    "fieldName": [
+      "Error message"
+    ]
+  }
+}
+```
+
+Business logic errors return a simple message object:
+
+```json
+{
+  "message": "Error description"
+}
+```
+
+## CORS Configuration
+
+The API is configured to accept requests from the following origins:
+
+- `https://crudpark.netlify.app` (Production frontend)
+- `http://localhost:5173` (Local development frontend)
+
+All HTTP methods and headers are allowed, and credentials are supported.
+
+<Warning>
+Requests from other origins will be blocked by CORS policy.
+</Warning>
+
+## API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+- **Swagger UI**: Available at `/swagger` endpoint when running the API
+- **OpenAPI Specification**: Generated automatically from controller attributes
+
+<Note>
+Swagger UI is enabled in all environments and can be accessed by navigating to the base URL with `/swagger` path.
+</Note>
+
+## Available Endpoints
+
+The CrudPark API provides the following resource endpoints:
+
+<CardGroup cols={2}>
+  <Card title="Operators" icon="user-tie" href="/api/operators">
+    Manage parking lot operators and staff
+  </Card>
+  
+  <Card title="Memberships" icon="id-card" href="/api/memberships">
+    Handle customer memberships and subscriptions
+  </Card>
+  
+  <Card title="Rates" icon="dollar-sign" href="/api/rates">
+    Configure parking rates and pricing
+  </Card>
+  
+  <Card title="Dashboard" icon="chart-line" href="/api/dashboard">
+    Access dashboard metrics and statistics
+  </Card>
+  
+  <Card title="Reports" icon="file-chart-column" href="/api/reports">
+    Generate and export business reports
+  </Card>
+</CardGroup>
+
+## Common Request Headers
+
+While authentication is not currently implemented, the following headers are recommended:
+
+<ParamField header="Content-Type" type="string" required>
+  Must be `application/json` for POST and PUT requests
+</ParamField>
+
+<ParamField header="Accept" type="string">
+  Set to `application/json` to receive JSON responses (default)
+</ParamField>
+
+## Pagination
+
+Currently, the API does not implement pagination. Collection endpoints return all available resources.
+
+<Note>
+For large datasets, consider implementing client-side pagination or contact the API team about server-side pagination support.
+</Note>
+
+## Rate Limiting
+
+There is currently no rate limiting implemented on the API endpoints.
+
+## Data Conventions
+
+### Naming Convention
+
+The API uses snake_case for database column names (configured via `UseSnakeCaseNamingConvention`) but exposes PascalCase properties in JSON responses following .NET conventions.
+
+### Date/Time Format
+
+Dates and timestamps are handled using legacy timestamp behavior for PostgreSQL compatibility:
+
+```csharp
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+```
+
+Dates are typically returned in ISO 8601 format.
+
+## Example Request
+
+Here's a basic example of making a request to the API:
+
+```bash
+curl -X GET "http://localhost:5268/api/memberships" \
+  -H "Accept: application/json"
+```
+
+```bash
+curl -X POST "http://localhost:5268/api/memberships" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": 123,
+    "startDate": "2026-03-08",
+    "endDate": "2027-03-08"
+  }'
+```

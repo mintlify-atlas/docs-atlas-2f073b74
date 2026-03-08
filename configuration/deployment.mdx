@@ -1,0 +1,356 @@
+---
+title: 'Deployment'
+description: 'Deploy CrudPark API using Docker and Docker Compose'
+---
+
+## Overview
+
+CrudPark uses Docker for containerization and supports deployment to any container platform. The application uses a multi-stage build process to create optimized production images.
+
+## Docker Configuration
+
+### Dockerfile
+
+The `Dockerfile` in the project root uses a multi-stage build to optimize the final image size:
+
+```dockerfile Dockerfile
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0@sha256:3fcf6f1e809c0553f9feb222369f58749af314af6f063f389cbd2f913b4ad556 AS build
+WORKDIR /src
+
+# Copy everything
+COPY . ./
+# Restore as distinct layers
+RUN dotnet restore CrudPark.sln
+# Build and publish a release
+RUN dotnet publish CrudPark.Api/CrudPark.Api.csproj -c Release -o /App/out
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0@sha256:b4bea3a52a0a77317fa93c5bbdb076623f81e3e2f201078d89914da71318b5d8
+WORKDIR /App
+COPY --from=build /App/out .
+ENTRYPOINT ["dotnet", "CrudPark.Api.dll"]
+```
+
+### Multi-Stage Build Benefits
+
+1. **Build Stage**: Uses the full .NET SDK (9.0) to compile and publish the application
+2. **Runtime Stage**: Uses the smaller ASP.NET runtime image, excluding build tools
+3. **Result**: Significantly smaller final image (~200MB vs ~700MB)
+4. **Security**: Only runtime dependencies are included in production
+
+### Docker Compose
+
+The `compose.yaml` file defines the service configuration:
+
+```yaml compose.yaml
+services:
+  api:
+    build: .
+    image: 27masaki/render-deploy
+    ports:
+      - "3000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+```
+
+## CORS Configuration
+
+The API is configured to accept requests from the production frontend and local development in `Program.cs:20-31`:
+
+```csharp Program.cs
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins, policy =>
+    {
+        policy.WithOrigins(
+                "https://crudpark.netlify.app", 
+                "http://localhost:5173"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); 
+    });
+});
+```
+
+<Warning>
+  Update the CORS origins in `Program.cs` if you deploy the frontend to a different domain.
+</Warning>
+
+## Building and Running
+
+### Local Development with Docker
+
+<Steps>
+  <Step title="Build the Docker Image">
+    ```bash
+    docker build -t crudpark-api .
+    ```
+  </Step>
+  
+  <Step title="Run the Container">
+    ```bash
+    docker run -p 3000:8080 \
+      -e ConnectionStrings__DefaultConnection="Host=host.docker.internal;Database=Parking_App_JME;Username=postgres;Password=postgres;Port=5432" \
+      crudpark-api
+    ```
+    
+    <Info>
+      Use `host.docker.internal` to connect to PostgreSQL running on your host machine from within the container.
+    </Info>
+  </Step>
+  
+  <Step title="Verify the API">
+    Open your browser to http://localhost:3000/swagger to access the Swagger UI.
+  </Step>
+</Steps>
+
+### Using Docker Compose
+
+<Steps>
+  <Step title="Start Services">
+    ```bash
+    docker compose up -d
+    ```
+  </Step>
+  
+  <Step title="View Logs">
+    ```bash
+    docker compose logs -f api
+    ```
+  </Step>
+  
+  <Step title="Stop Services">
+    ```bash
+    docker compose down
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables
+
+Configure the application using environment variables in production:
+
+### Required Variables
+
+```bash
+# Database
+ConnectionStrings__DefaultConnection="Host=db-host;Database=Parking_App_JME;Username=app_user;Password=secure_password;Port=5432"
+
+# SMTP (for email notifications)
+SmtpSettings__Host="smtp.gmail.com"
+SmtpSettings__Port="587"
+SmtpSettings__Username="your-email@gmail.com"
+SmtpSettings__Password="your-app-password"
+SmtpSettings__SenderEmail="noreply@crudpark.com"
+SmtpSettings__SenderName="CrudPark Notifications"
+
+# Application
+ASPNETCORE_ENVIRONMENT="Production"
+ASPNETCORE_URLS="http://+:8080"
+```
+
+### Optional Variables
+
+```bash
+# Parking capacity
+AppSettings__TotalParkingSpaces="150"
+
+# Logging
+Logging__LogLevel__Default="Information"
+Logging__LogLevel__Microsoft.AspNetCore="Warning"
+```
+
+## Production Deployment
+
+### Deploy to Render
+
+<Steps>
+  <Step title="Push to Docker Hub">
+    Build and push your image:
+    
+    ```bash
+    docker build -t your-username/crudpark-api .
+    docker push your-username/crudpark-api
+    ```
+  </Step>
+  
+  <Step title="Create Web Service">
+    1. Go to Render dashboard
+    2. Create a new Web Service
+    3. Choose "Deploy an existing image"
+    4. Enter your Docker Hub image: `your-username/crudpark-api`
+  </Step>
+  
+  <Step title="Configure Environment">
+    Add environment variables in Render dashboard:
+    - Connection string
+    - SMTP settings
+    - ASPNETCORE_ENVIRONMENT=Production
+  </Step>
+  
+  <Step title="Deploy">
+    Click "Create Web Service" and wait for deployment to complete.
+  </Step>
+</Steps>
+
+### Deploy to Railway
+
+<Steps>
+  <Step title="Connect Repository">
+    Link your GitHub repository to Railway.
+  </Step>
+  
+  <Step title="Configure Build">
+    Railway will automatically detect the Dockerfile and build the image.
+  </Step>
+  
+  <Step title="Add PostgreSQL">
+    Click "New" → "Database" → "PostgreSQL" to provision a database.
+  </Step>
+  
+  <Step title="Set Variables">
+    Railway automatically creates `DATABASE_URL`. Add additional variables:
+    - SMTP settings
+    - ASPNETCORE_ENVIRONMENT=Production
+  </Step>
+</Steps>
+
+### Deploy to Azure Container Apps
+
+<Steps>
+  <Step title="Create Container Registry">
+    ```bash
+    az acr create --resource-group myResourceGroup \
+      --name crudparkregistry --sku Basic
+    ```
+  </Step>
+  
+  <Step title="Build and Push Image">
+    ```bash
+    az acr build --registry crudparkregistry \
+      --image crudpark-api:latest .
+    ```
+  </Step>
+  
+  <Step title="Create Container App">
+    ```bash
+    az containerapp create \
+      --name crudpark-api \
+      --resource-group myResourceGroup \
+      --image crudparkregistry.azurecr.io/crudpark-api:latest \
+      --target-port 8080 \
+      --ingress external \
+      --env-vars \
+        ConnectionStrings__DefaultConnection="your-connection-string" \
+        ASPNETCORE_ENVIRONMENT="Production"
+    ```
+  </Step>
+</Steps>
+
+## Health Checks
+
+Add a health check endpoint to monitor your deployment:
+
+```csharp Program.cs
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString);
+
+app.MapHealthChecks("/health");
+```
+
+Access the health endpoint at `https://your-domain.com/health`.
+
+## Swagger in Production
+
+By default, Swagger is enabled in production (`Program.cs:70-71`):
+
+```csharp Program.cs
+app.UseSwagger();
+app.UseSwaggerUI();
+```
+
+<Warning>
+  Consider disabling Swagger in production for security:
+  
+  ```csharp
+  if (app.Environment.IsDevelopment())
+  {
+      app.UseSwagger();
+      app.UseSwaggerUI();
+  }
+  ```
+</Warning>
+
+## SSL/HTTPS Configuration
+
+In production, the API runs on HTTP (port 8080) and relies on the platform's reverse proxy for SSL termination:
+
+- **Render**: Automatic HTTPS with Let's Encrypt
+- **Railway**: Automatic HTTPS
+- **Azure**: Configure HTTPS in Container App settings
+
+The `app.UseHttpsRedirection()` middleware (`Program.cs:73`) redirects HTTP to HTTPS when a reverse proxy is detected.
+
+## Monitoring and Logging
+
+### View Logs
+
+<CodeGroup>
+```bash Docker
+docker logs -f container-name
+```
+
+```bash Docker Compose
+docker compose logs -f api
+```
+
+```bash Render
+# View logs in Render dashboard
+```
+
+```bash Railway
+# View logs in Railway dashboard
+```
+</CodeGroup>
+
+### Log Levels
+
+Configure logging in `appsettings.json` or via environment variables:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "Microsoft.EntityFrameworkCore": "Warning"
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Container Won't Start
+
+1. Check logs: `docker logs container-name`
+2. Verify environment variables are set correctly
+3. Ensure database is accessible from the container
+4. Check port mappings
+
+### Database Connection Errors
+
+1. Verify connection string format
+2. Ensure database host is reachable from container
+3. Check firewall rules
+4. Confirm database credentials are correct
+
+### CORS Errors
+
+1. Verify frontend URL is listed in CORS policy (`Program.cs:24-25`)
+2. Ensure protocol (http/https) matches
+3. Check that CORS middleware is properly registered

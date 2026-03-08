@@ -1,0 +1,208 @@
+---
+title: Stays
+description: Tracking vehicle entries and exits in the parking facility
+---
+
+## Overview
+
+A **Stay** represents a single parking session for a vehicle, tracking when it entered the facility, when it exited (if applicable), and which operators handled the entry and exit. Stays are classified by type (Membership or Guest) and have a current status (INSIDE or OUTSIDE).
+
+## Stay Entity
+
+The `Stay` entity captures all information about a parking session:
+
+```csharp CrudPark.Core/Entities/Stay.cs
+public class Stay
+{
+    public int StayId { get; set; }
+    public string LicensePlate { get; set; }
+    public DateTime EntryTimestamp { get; set; }
+    public DateTime? ExitTimestamp { get; set; } // Null if vehicle is inside
+    public string StayType { get; set; } // "Membership" or "Guest"
+    public string Status { get; set; } // "INSIDE" or "OUTSIDE"
+    public string Vehicle_Type { get; set; }
+
+    public int EntryOperatorId { get; set; }
+    public int? ExitOperatorId { get; set; } // Null if still inside
+
+    public virtual Operator EntryOperator { get; set; }
+    public virtual Operator ExitOperator { get; set; }
+}
+```
+
+### Key Fields
+
+- **StayId**: Unique identifier for this parking session
+- **LicensePlate**: Vehicle license plate
+- **EntryTimestamp**: Exact date and time when the vehicle entered the facility
+- **ExitTimestamp**: Date and time when the vehicle exited (null if currently inside)
+- **StayType**: Either "Membership" (for active membership holders) or "Guest" (for visitors)
+- **Status**: "INSIDE" if vehicle is currently parked, "OUTSIDE" if stay is completed
+- **Vehicle_Type**: Type of vehicle (e.g., "Car", "Motorcycle")
+- **EntryOperatorId**: ID of the operator who processed the vehicle entry
+- **ExitOperatorId**: ID of the operator who processed the vehicle exit (null if still inside)
+
+<Note>
+  A vehicle is considered "inside" when `ExitTimestamp` is null and `Status` is "INSIDE". The system counts vehicles inside by querying stays where `ExitTimestamp == null`.
+</Note>
+
+## Stay Types
+
+### Membership Stays
+
+When a vehicle with an active membership enters:
+- `StayType` is set to "Membership"
+- The system verifies an active membership exists for the license plate
+- No payment is required at entry or exit
+- Entry and exit are recorded for reporting purposes
+
+### Guest Stays
+
+When a non-member vehicle enters:
+- `StayType` is set to "Guest"
+- Entry time is recorded
+- At exit, the system calculates charges based on stay duration and configured rates
+- A payment is created and linked to this stay
+
+## Stay Workflow
+
+### 1. Vehicle Entry
+
+When a vehicle arrives at the parking facility:
+
+1. Operator scans or enters the license plate
+2. System checks for an active membership:
+   - If found → Create "Membership" type stay
+   - If not found → Create "Guest" type stay
+3. Record current timestamp as `EntryTimestamp`
+4. Set `Status = "INSIDE"`
+5. Leave `ExitTimestamp` as null
+6. Record the `EntryOperatorId`
+
+```csharp Example Entry
+{
+  "LicensePlate": "ABC123",
+  "EntryTimestamp": "2026-03-08T14:30:00Z",
+  "ExitTimestamp": null,
+  "StayType": "Guest",
+  "Status": "INSIDE",
+  "Vehicle_Type": "Car",
+  "EntryOperatorId": 5,
+  "ExitOperatorId": null
+}
+```
+
+### 2. Vehicle Exit
+
+When a vehicle leaves:
+
+1. Operator scans or enters the license plate
+2. System finds the active stay (where `ExitTimestamp` is null)
+3. Record current timestamp as `ExitTimestamp`
+4. Set `Status = "OUTSIDE"`
+5. Record the `ExitOperatorId`
+6. If `StayType` is "Guest":
+   - Calculate total stay duration: `ExitTimestamp - EntryTimestamp`
+   - Calculate charges based on configured rates
+   - Create a Payment record linked to this stay
+   - Process payment through selected method
+
+```csharp Example Completed Stay
+{
+  "StayId": 123,
+  "LicensePlate": "ABC123",
+  "EntryTimestamp": "2026-03-08T14:30:00Z",
+  "ExitTimestamp": "2026-03-08T18:45:00Z",
+  "StayType": "Guest",
+  "Status": "OUTSIDE",
+  "Vehicle_Type": "Car",
+  "EntryOperatorId": 5,
+  "ExitOperatorId": 7
+}
+```
+
+<Info>
+  The stay duration for this example is 4 hours and 15 minutes. The payment amount is calculated based on the configured hourly rates for the vehicle type.
+</Info>
+
+## Operator Tracking
+
+Each stay tracks which operators handled the entry and exit:
+
+- **EntryOperator**: Records accountability for vehicle admission
+- **ExitOperator**: Records accountability for vehicle departure and payment processing
+
+This dual-operator tracking enables:
+- Shift-based reporting
+- Operator performance metrics
+- Audit trails for entries and exits
+
+See `CrudPark.Core/Entities/Stay.cs:18` for the navigation properties linking stays to operators.
+
+## Real-World Scenarios
+
+### Scenario 1: Member Entry/Exit
+
+A customer with an active membership (license plate "XYZ789") arrives:
+
+1. **Entry**: Stay created with `StayType = "Membership"`, `Status = "INSIDE"`
+2. **During Stay**: Vehicle remains parked
+3. **Exit**: `ExitTimestamp` recorded, `Status = "OUTSIDE"`, no payment required
+
+### Scenario 2: Guest Entry/Exit with Payment
+
+A visitor (license plate "GUE456") arrives:
+
+1. **Entry**: Stay created with `StayType = "Guest"`, `Status = "INSIDE"`
+2. **During Stay**: Vehicle parked for 3 hours
+3. **Exit**: System calculates charges, processes payment, updates stay with `ExitTimestamp` and `ExitOperatorId`
+
+### Scenario 3: Overnight Parking
+
+A guest enters at 11:00 PM and exits at 8:00 AM the next day:
+- The system accurately calculates the duration across the date boundary
+- Charges are calculated based on the total time elapsed
+- Both entry and exit timestamps are stored in UTC to avoid timezone issues
+
+## Stay Analytics
+
+Stays are used extensively in reporting:
+
+### Current Occupation
+
+```csharp CrudPark.Infrastructure/Repositories/StayRepository.cs
+public async Task<int> CountVehiclesInsideAsync() => 
+    await _context.Stays.CountAsync(s => s.ExitTimestamp == null);
+```
+
+Counts vehicles currently in the facility by finding stays where `ExitTimestamp` is null.
+
+### Membership vs Guest Analysis
+
+Reports compare stay types to understand:
+- What percentage of stays are from members vs guests
+- Revenue from guest stays vs membership subscriptions
+- Peak times for each stay type
+
+### Average Stay Duration
+
+For completed stays (where `ExitTimestamp` is not null):
+```csharp
+var duration = stay.ExitTimestamp.Value - stay.EntryTimestamp;
+```
+
+This metric helps optimize pricing and capacity planning (see `CrudPark.Application/Services/ReportsService.cs:60`).
+
+## Related Concepts
+
+<CardGroup cols={3}>
+  <Card title="Memberships" icon="id-card" href="/concepts/memberships">
+    Learn about membership-type stays
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/concepts/payments">
+    Understand how guest stays generate payments
+  </Card>
+  <Card title="Operators" icon="user" href="/concepts/operators">
+    See how operators manage entries and exits
+  </Card>
+</CardGroup>

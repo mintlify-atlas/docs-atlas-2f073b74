@@ -1,0 +1,365 @@
+---
+title: Architecture
+description: Understanding CrudPark's Clean Architecture implementation
+---
+
+## Overview
+
+CrudPark is built using **Clean Architecture** principles, which organize code into distinct layers with clear dependencies. This architecture ensures:
+
+- **Separation of Concerns**: Each layer has a specific responsibility
+- **Testability**: Business logic is isolated from external dependencies
+- **Maintainability**: Changes in one layer don't affect others
+- **Independence**: Core business rules don't depend on frameworks or databases
+
+## Architecture Layers
+
+CrudPark consists of four main layers:
+
+```
+┌─────────────────────────────────────────┐
+│         CrudPark.Api (Web Layer)        │  ← Controllers, Program.cs
+├─────────────────────────────────────────┤
+│    CrudPark.Application (Use Cases)     │  ← Services, DTOs, Interfaces
+├─────────────────────────────────────────┤
+│      CrudPark.Core (Domain/Entities)    │  ← Business Entities
+├─────────────────────────────────────────┤
+│  CrudPark.Infrastructure (Data Access)  │  ← Repositories, DbContext
+└─────────────────────────────────────────┘
+```
+
+### Dependency Flow
+
+Dependencies flow **inward** toward the core:
+- **Api** depends on **Application** and **Infrastructure**
+- **Application** depends on **Core**
+- **Infrastructure** depends on **Core**
+- **Core** has no dependencies on other layers
+
+## Layer Details
+
+### 1. CrudPark.Core (Domain Layer)
+
+**Purpose**: Contains enterprise business rules and domain entities
+
+**Location**: `CrudPark.Core/`
+
+**Contents**:
+- **Entities**: Pure business objects with no framework dependencies
+  - `Operator.cs` - Parking facility operators
+  - `Customer.cs` - Customers with navigation to memberships
+  - `Membership.cs` - Customer parking memberships
+  - `Rate.cs` - Pricing configurations
+  - `Payment.cs` - Payment transactions
+  - `Stay.cs` - Vehicle entry/exit records
+
+**Example Entity** (`CrudPark.Core/Entities/Operator.cs:1-11`):
+
+```csharp
+namespace CrudPark.Core.Entities;
+
+public class Operator
+{
+    public int OperatorId { get; set; }
+    public string PasswordHash { get; set; }
+    public string FullName { get; set; }
+    public string? Email { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+```
+
+<Note>
+  Core entities are plain C# classes (POCOs) with no attributes or framework dependencies. This keeps business logic independent of infrastructure concerns.
+</Note>
+
+### 2. CrudPark.Application (Application Layer)
+
+**Purpose**: Contains application business rules, use cases, and orchestration logic
+
+**Location**: `CrudPark.Application/`
+
+**Contents**:
+- **Services**: Business logic implementation
+  - `DashboardService.cs` - Dashboard metrics calculation
+  - `OperatorService.cs` - Operator management
+  - `MembershipService.cs` - Membership operations
+  - `RateService.cs` - Rate management
+  - `ReportsService.cs` - Report generation
+  - `ExportService.cs` - Data export functionality
+
+- **Interfaces**: Service and repository contracts
+  - `IDashboardService`, `IOperatorService`, etc.
+  - `IOperatorRepository`, `ICustomerRepository`, etc.
+
+- **DTOs**: Data transfer objects for API communication
+  - `DashboardDto.cs` - Dashboard metrics response
+  - `OperatorDto.cs`, `MembershipDto.cs`, `RateDto.cs`
+  - `CreateOperatorDto.cs`, `UpdateOperatorDto.cs`
+
+- **Configuration**: Application settings models
+  - `SmtpSettings.cs` - Email configuration
+
+**Example Service** (`CrudPark.Application/Services/DashboardService.cs:26-61`):
+
+```csharp
+public async Task<DashboardDto> GetDashboardMetricsAsync()
+{
+    var today = TimeZoneInfo.ConvertTimeFromUtc(
+        DateTime.UtcNow, 
+        TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time")
+    ).Date;
+    
+    int vehiclesInside = await _stayRepo.CountVehiclesInsideAsync();
+    decimal incomeToday = await _paymentRepo.GetTotalIncomeForDateAsync(today);
+    int activeMemberships = await _membershipRepo.CountActiveAsync(today);
+    
+    var totalSpaces = _configuration.GetValue<int>("AppSettings:TotalParkingSpaces");
+    double occupationPercentage = totalSpaces > 0 && vehiclesInside > 0
+        ? ((double)vehiclesInside / totalSpaces) * 100
+        : 0.0;
+    
+    return new DashboardDto
+    {
+        VehiclesCurrentlyInside = vehiclesInside,
+        OccupationPercentage = Math.Round(occupationPercentage, 2),
+        IncomeToday = incomeToday,
+        MembershipsActive = activeMemberships
+    };
+}
+```
+
+### 3. CrudPark.Infrastructure (Infrastructure Layer)
+
+**Purpose**: Implements interfaces defined in Application layer for external concerns
+
+**Location**: `CrudPark.Infrastructure/`
+
+**Contents**:
+- **Data**: Entity Framework Core DbContext
+  - `ParkingDbContext.cs` - Database context with entity configurations
+
+- **Repositories**: Data access implementations
+  - `OperatorRepository.cs`
+  - `CustomerRepository.cs`
+  - `MembershipRepository.cs`
+  - `RateRepository.cs`
+  - `StayRepository.cs`
+  - `PaymentRepository.cs`
+  - `ReportsRepository.cs`
+
+- **Services**: External service integrations
+  - `EmailService.cs` - SMTP email sending
+  - `MembershipExpirationNotifier.cs` - Background service for notifications
+
+**Example DbContext** (`CrudPark.Infrastructure/Data/ParkingDbContext.cs:6-37`):
+
+```csharp
+public class ParkingDbContext : DbContext
+{
+    public ParkingDbContext(DbContextOptions<ParkingDbContext> options) 
+        : base(options) { }
+    
+    public DbSet<Operator> Operators { get; set; }
+    public DbSet<Customer> Customers { get; set; }
+    public DbSet<Membership> Memberships { get; set; }
+    public DbSet<Rate> Rates { get; set; }
+    public DbSet<Payment> Payments { get; set; }
+    public DbSet<Stay> Stays { get; set; }
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Entity configurations with snake_case column naming
+        modelBuilder.Entity<Operator>(entity =>
+        {
+            entity.ToTable("operators");
+            entity.HasKey(e => e.OperatorId);
+            entity.Property(e => e.OperatorId).HasColumnName("operator_id");
+            entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+            // ... more configurations
+        });
+    }
+}
+```
+
+<Info>
+  The DbContext uses snake_case naming convention for PostgreSQL compatibility via `.UseSnakeCaseNamingConvention()`.
+</Info>
+
+### 4. CrudPark.Api (Presentation Layer)
+
+**Purpose**: Exposes the application through HTTP endpoints
+
+**Location**: `CrudPark.Api/`
+
+**Contents**:
+- **Controllers**: API endpoint definitions
+  - `DashboardController.cs` - Dashboard metrics endpoint
+  - `OperatorsController.cs` - Operator CRUD operations
+  - `MembershipsController.cs` - Membership management
+  - `RatesController.cs` - Rate configuration
+  - `ReportsController.cs` - Reporting endpoints
+
+- **Configuration**:
+  - `Program.cs` - Application startup and DI configuration
+  - `appsettings.json` - Application configuration
+
+**Example Controller** (`CrudPark.Api/Controllers/DashboardController.cs:8-22`):
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class DashboardController : ControllerBase
+{
+    private readonly IDashboardService _dashboardService;
+    
+    public DashboardController(IDashboardService dashboardService)
+    {
+        _dashboardService = dashboardService;
+    }
+    
+    [HttpGet("metrics")]
+    public async Task<IActionResult> GetDashboardMetrics()
+    {
+        var metrics = await _dashboardService.GetDashboardMetricsAsync();
+        return Ok(metrics);
+    }
+}
+```
+
+## Key Patterns
+
+### Repository Pattern
+
+Repositories abstract data access logic, allowing the application layer to work with domain objects without knowing database details.
+
+**Interface** (in Application layer):
+```csharp
+public interface IOperatorRepository
+{
+    Task<Operator> GetByIdAsync(int id);
+    Task<IEnumerable<Operator>> GetAllAsync();
+    Task AddAsync(Operator operator);
+    Task UpdateAsync(Operator operator);
+}
+```
+
+**Implementation** (in Infrastructure layer):
+```csharp
+public class OperatorRepository : IOperatorRepository
+{
+    private readonly ParkingDbContext _context;
+    // Implementation using Entity Framework Core
+}
+```
+
+### Service Layer Pattern
+
+Services contain business logic and orchestrate operations across repositories.
+
+```csharp
+public class DashboardService : IDashboardService
+{
+    private readonly IStayRepository _stayRepo;
+    private readonly IPaymentRepository _paymentRepo;
+    private readonly IMembershipRepository _membershipRepo;
+    
+    // Business logic for calculating dashboard metrics
+}
+```
+
+### Dependency Injection
+
+All dependencies are registered in `CrudPark.Api/Program.cs:34-57`:
+
+```csharp
+// Database
+builder.Services.AddDbContext<ParkingDbContext>(options =>
+    options.UseNpgsql(connectionString)
+           .UseSnakeCaseNamingConvention());
+
+// Repositories
+builder.Services.AddScoped<IOperatorRepository, OperatorRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+// ... more repositories
+
+// Services
+builder.Services.AddScoped<IOperatorService, OperatorService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+// ... more services
+
+// Background Services
+builder.Services.AddHostedService<MembershipExpirationNotifier>();
+```
+
+## Project Structure
+
+```
+CrudPark/
+├── CrudPark.Api/
+│   ├── Controllers/
+│   │   ├── DashboardController.cs
+│   │   ├── OperatorsController.cs
+│   │   ├── MembershipsController.cs
+│   │   ├── RatesController.cs
+│   │   └── ReportsController.cs
+│   ├── Program.cs
+│   └── appsettings.json
+│
+├── CrudPark.Application/
+│   ├── DTOs/
+│   ├── Interfaces/
+│   ├── Services/
+│   └── Configuration/
+│
+├── CrudPark.Core/
+│   └── Entities/
+│       ├── Operator.cs
+│       ├── Customer.cs
+│       ├── Membership.cs
+│       ├── Rate.cs
+│       ├── Payment.cs
+│       └── Stay.cs
+│
+├── CrudPark.Infrastructure/
+│   ├── Data/
+│   │   └── ParkingDbContext.cs
+│   ├── Repositories/
+│   └── Services/
+│
+├── Dockerfile
+└── compose.yaml
+```
+
+## Benefits of This Architecture
+
+<CardGroup cols={2}>
+  <Card title="Testability" icon="flask">
+    Business logic in services can be tested independently by mocking repository interfaces
+  </Card>
+  
+  <Card title="Flexibility" icon="arrows-rotate">
+    Easy to swap implementations (e.g., switch from PostgreSQL to another database)
+  </Card>
+  
+  <Card title="Maintainability" icon="wrench">
+    Clear separation makes it easy to locate and modify specific functionality
+  </Card>
+  
+  <Card title="Scalability" icon="arrow-up-right-dots">
+    Well-organized structure supports growth and team collaboration
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore all available endpoints
+  </Card>
+  
+  <Card title="Dashboard API" icon="gauge" href="/api/dashboard">
+    Learn about dashboard metrics
+  </Card>
+</CardGroup>

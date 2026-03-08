@@ -1,0 +1,285 @@
+---
+title: 'Email Configuration'
+description: 'Configure SMTP email notifications for membership expiration reminders'
+---
+
+## Overview
+
+CrudPark includes an automated email notification system that sends reminders to customers when their parking memberships are about to expire. The system uses SMTP for email delivery and runs as a background service.
+
+## SMTP Configuration
+
+### Settings Structure
+
+The SMTP configuration is defined in the `SmtpSettings` class (`CrudPark.Application/Configuration/SmtpSettings.cs`):
+
+```csharp SmtpSettings.cs
+public class SmtpSettings
+{
+    public string Host { get; set; }
+    public int Port { get; set; }
+    public string Username { get; set; }
+    public string Password { get; set; }
+    public string SenderEmail { get; set; }
+    public string SenderName { get; set; }
+}
+```
+
+### Configuration in appsettings.json
+
+<Warning>
+  Do not store SMTP credentials in `appsettings.json` for production. Use User Secrets for development and environment variables for production.
+</Warning>
+
+For development, add SMTP settings to your `appsettings.json`:
+
+```json appsettings.json
+{
+  "SmtpSettings": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Username": "your-email@gmail.com",
+    "Password": "your-app-password",
+    "SenderEmail": "noreply@crudpark.com",
+    "SenderName": "CrudPark Notifications"
+  }
+}
+```
+
+### Using User Secrets (Recommended for Development)
+
+<Steps>
+  <Step title="Initialize User Secrets">
+    Navigate to the API project directory and initialize user secrets:
+    
+    ```bash
+    cd CrudPark.Api
+    dotnet user-secrets init
+    ```
+  </Step>
+  
+  <Step title="Set SMTP Credentials">
+    Add your SMTP configuration:
+    
+    ```bash
+    dotnet user-secrets set "SmtpSettings:Host" "smtp.gmail.com"
+    dotnet user-secrets set "SmtpSettings:Port" "587"
+    dotnet user-secrets set "SmtpSettings:Username" "your-email@gmail.com"
+    dotnet user-secrets set "SmtpSettings:Password" "your-app-password"
+    dotnet user-secrets set "SmtpSettings:SenderEmail" "noreply@crudpark.com"
+    dotnet user-secrets set "SmtpSettings:SenderName" "CrudPark Notifications"
+    ```
+  </Step>
+</Steps>
+
+## Email Service Setup
+
+### Service Registration
+
+The email service is registered in `Program.cs:39-40`:
+
+```csharp Program.cs
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.AddTransient<IEmailService, EmailService>();
+```
+
+### EmailService Implementation
+
+The `EmailService` class (`CrudPark.Infrastructure/Services/EmailService.cs`) handles email sending:
+
+```csharp EmailService.cs
+public class EmailService : IEmailService
+{
+    private readonly SmtpSettings _smtpSettings;
+
+    public EmailService(IOptions<SmtpSettings> smtpSettings)
+    {
+        _smtpSettings = smtpSettings.Value;
+    }
+
+    public async Task SendEmailAsync(string toEmail, string subject, string body)
+    {
+        if (string.IsNullOrEmpty(_smtpSettings.Username) || 
+            string.IsNullOrEmpty(_smtpSettings.Password))
+        {
+            // No credentials configured, skip sending
+            return;
+        }
+
+        using (var client = new SmtpClient(_smtpSettings.Host, _smtpSettings.Port))
+        {
+            client.Credentials = new NetworkCredential(
+                _smtpSettings.Username, 
+                _smtpSettings.Password
+            );
+            client.EnableSsl = true;
+
+            var fromAddress = new MailAddress(
+                _smtpSettings.SenderEmail, 
+                _smtpSettings.SenderName
+            );
+            var toAddress = new MailAddress(toEmail);
+
+            var mailMessage = new MailMessage(fromAddress, toAddress)
+            {
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = false
+            };
+
+            await client.SendMailAsync(mailMessage);
+        }
+    }
+}
+```
+
+## Membership Expiration Notifier
+
+### Background Service Registration
+
+The notification service is registered as a hosted service in `Program.cs:59`:
+
+```csharp Program.cs
+builder.Services.AddHostedService<MembershipExpirationNotifier>();
+```
+
+### How It Works
+
+The `MembershipExpirationNotifier` (`CrudPark.Infrastructure/Services/MembershipExpirationNotifier.cs`) runs as a background service:
+
+- Checks for expiring memberships every 24 hours
+- Sends email reminders 3 days before membership expiration
+- Includes customer name, license plate, and expiration date in the notification
+
+```csharp MembershipExpirationNotifier.cs
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        try
+        {
+            await CheckAndNotifyMemberships();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in notification cycle.");
+        }
+        
+        await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+    }
+}
+```
+
+### Notification Logic
+
+The service queries memberships expiring in 3 days and sends personalized emails:
+
+```csharp MembershipExpirationNotifier.cs
+var reminderDate = DateTime.UtcNow.AddDays(3).Date;
+var expiringMemberships = await membershipRepo.GetMembershipsExpiringOnDateAsync(reminderDate);
+
+foreach (var membership in expiringMemberships)
+{
+    if (!string.IsNullOrEmpty(membership.Customer.Email))
+    {
+        var subject = "Recordatorio: Tu mensualidad de CrudPark está por vencer";
+        var body = $"Hola {membership.Customer.FullName},\n\n" +
+                   $"Te recordamos que tu mensualidad para el vehículo con placa {membership.LicensePlate} vence el {membership.EndDate:D}.\n\n" +
+                   "Puedes pasar por nuestras oficinas para renovarla.\n\n" +
+                   "¡Gracias!";
+        
+        await emailService.SendEmailAsync(membership.Customer.Email, subject, body);
+    }
+}
+```
+
+## SMTP Provider Examples
+
+<CodeGroup>
+```json Gmail
+{
+  "SmtpSettings": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "Username": "your-email@gmail.com",
+    "Password": "your-app-specific-password",
+    "SenderEmail": "noreply@crudpark.com",
+    "SenderName": "CrudPark Notifications"
+  }
+}
+```
+
+```json SendGrid
+{
+  "SmtpSettings": {
+    "Host": "smtp.sendgrid.net",
+    "Port": 587,
+    "Username": "apikey",
+    "Password": "your-sendgrid-api-key",
+    "SenderEmail": "noreply@crudpark.com",
+    "SenderName": "CrudPark Notifications"
+  }
+}
+```
+
+```json Mailgun
+{
+  "SmtpSettings": {
+    "Host": "smtp.mailgun.org",
+    "Port": 587,
+    "Username": "postmaster@your-domain.mailgun.org",
+    "Password": "your-mailgun-password",
+    "SenderEmail": "noreply@crudpark.com",
+    "SenderName": "CrudPark Notifications"
+  }
+}
+```
+</CodeGroup>
+
+## Production Configuration
+
+### Using Environment Variables
+
+For production deployments, configure SMTP settings via environment variables:
+
+```bash
+export SmtpSettings__Host="smtp.gmail.com"
+export SmtpSettings__Port="587"
+export SmtpSettings__Username="your-email@gmail.com"
+export SmtpSettings__Password="your-app-password"
+export SmtpSettings__SenderEmail="noreply@crudpark.com"
+export SmtpSettings__SenderName="CrudPark Notifications"
+```
+
+### Gmail App Passwords
+
+If using Gmail, you must create an App Password:
+
+<Steps>
+  <Step title="Enable 2-Factor Authentication">
+    Enable 2FA on your Google account at https://myaccount.google.com/security
+  </Step>
+  
+  <Step title="Generate App Password">
+    Go to App Passwords section and generate a new password for "Mail"
+  </Step>
+  
+  <Step title="Use App Password">
+    Use the generated 16-character password (without spaces) in your SMTP configuration
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Emails Not Sending
+
+1. Check that SMTP credentials are correctly configured
+2. Verify the email service logs for errors
+3. Ensure firewall allows outbound connections on the SMTP port
+4. Confirm SSL/TLS is enabled (`client.EnableSsl = true` in EmailService.cs:34)
+
+### Gmail Authentication Errors
+
+- Ensure you're using an App Password, not your regular password
+- Verify 2-Factor Authentication is enabled on your Google account
+- Check for "Less secure app access" warnings in your Gmail settings

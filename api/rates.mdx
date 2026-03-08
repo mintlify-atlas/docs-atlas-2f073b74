@@ -1,0 +1,371 @@
+---
+title: "Rates"
+description: "Manage parking rates and pricing configurations"
+---
+
+The Rates API allows you to manage pricing configurations for different vehicle types and time periods.
+
+## Get All Rates
+
+<api method="GET" endpoint="/api/rates" />
+
+Retrieve a list of all configured parking rates.
+
+### Response
+
+Returns an array of rate objects.
+
+<ResponseField name="[]" type="array">
+  Array of rate objects with the following fields:
+  
+  <Expandable title="Rate Object">
+    <ResponseField name="RateId" type="integer">
+      Unique identifier for the rate.
+    </ResponseField>
+    
+    <ResponseField name="Description" type="string">
+      Description of the rate.
+    </ResponseField>
+    
+    <ResponseField name="VehicleType" type="string">
+      Type of vehicle this rate applies to.
+    </ResponseField>
+    
+    <ResponseField name="HourlyRate" type="number">
+      Rate charged per hour.
+    </ResponseField>
+    
+    <ResponseField name="FractionRate" type="number">
+      Rate charged for partial hours.
+    </ResponseField>
+    
+    <ResponseField name="DailyCap" type="number">
+      Maximum charge per day (optional).
+    </ResponseField>
+    
+    <ResponseField name="GracePeriodMinutes" type="integer">
+      Free grace period in minutes.
+    </ResponseField>
+    
+    <ResponseField name="IsActive" type="boolean">
+      Whether this rate is currently active.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/rates
+```
+
+```json Response
+[
+  {
+    "RateId": 1,
+    "Description": "Standard Car Rate",
+    "VehicleType": "Car",
+    "HourlyRate": 5.00,
+    "FractionRate": 1.25,
+    "DailyCap": 40.00,
+    "GracePeriodMinutes": 15,
+    "IsActive": true
+  },
+  {
+    "RateId": 2,
+    "Description": "Motorcycle Rate",
+    "VehicleType": "Motorcycle",
+    "HourlyRate": 2.50,
+    "FractionRate": 0.75,
+    "DailyCap": 20.00,
+    "GracePeriodMinutes": 15,
+    "IsActive": true
+  }
+]
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved rates
+
+---
+
+## Get Rate by ID
+
+<api method="GET" endpoint="/api/rates/{id}" />
+
+Retrieve details of a specific rate by ID.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the rate.
+</ParamField>
+
+### Response
+
+<ResponseField name="RateId" type="integer">
+  Unique identifier for the rate.
+</ResponseField>
+
+<ResponseField name="Description" type="string">
+  Description of the rate.
+</ResponseField>
+
+<ResponseField name="VehicleType" type="string">
+  Type of vehicle this rate applies to.
+</ResponseField>
+
+<ResponseField name="HourlyRate" type="number">
+  Rate charged per hour.
+</ResponseField>
+
+<ResponseField name="FractionRate" type="number">
+  Rate charged for partial hours.
+</ResponseField>
+
+<ResponseField name="DailyCap" type="number">
+  Maximum charge per day (optional).
+</ResponseField>
+
+<ResponseField name="GracePeriodMinutes" type="integer">
+  Free grace period in minutes.
+</ResponseField>
+
+<ResponseField name="IsActive" type="boolean">
+  Whether this rate is currently active.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/rates/1
+```
+
+```json Response
+{
+  "RateId": 1,
+  "Description": "Standard Car Rate",
+  "VehicleType": "Car",
+  "HourlyRate": 5.00,
+  "FractionRate": 1.25,
+  "DailyCap": 40.00,
+  "GracePeriodMinutes": 15,
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved rate
+- `404 Not Found` - Rate not found
+
+---
+
+## Create Rate
+
+<api method="POST" endpoint="/api/rates" />
+
+Create a new parking rate configuration.
+
+### Request Body
+
+<ParamField body="Description" type="string" required>
+  Description of the rate (e.g., "Standard Car Rate").
+</ParamField>
+
+<ParamField body="VehicleType" type="string" required>
+  Type of vehicle this rate applies to (e.g., "Car", "Motorcycle", "Truck").
+</ParamField>
+
+<ParamField body="HourlyRate" type="number" required>
+  Rate charged per hour in decimal format.
+</ParamField>
+
+<ParamField body="FractionRate" type="number" required>
+  Rate charged for partial hours (typically 15-minute increments).
+</ParamField>
+
+<ParamField body="DailyCap" type="number">
+  Maximum charge per day. Set to null for no daily cap.
+</ParamField>
+
+<ParamField body="GracePeriodMinutes" type="integer" required>
+  Number of minutes of free parking before charges begin.
+</ParamField>
+
+<ParamField body="IsActive" type="boolean" required>
+  Whether this rate should be active immediately.
+</ParamField>
+
+### Response
+
+Returns the created rate object with assigned `RateId`.
+
+<CodeGroup>
+
+```bash Request
+curl -X POST https://api.crudpark.com/api/rates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Description": "Standard Car Rate",
+    "VehicleType": "Car",
+    "HourlyRate": 5.00,
+    "FractionRate": 1.25,
+    "DailyCap": 40.00,
+    "GracePeriodMinutes": 15,
+    "IsActive": true
+  }'
+```
+
+```json Response
+{
+  "RateId": 1,
+  "Description": "Standard Car Rate",
+  "VehicleType": "Car",
+  "HourlyRate": 5.00,
+  "FractionRate": 1.25,
+  "DailyCap": 40.00,
+  "GracePeriodMinutes": 15,
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `201 Created` - Rate created successfully
+- `400 Bad Request` - Invalid request body or validation errors
+
+<Note>
+  The `FractionRate` is typically calculated as `HourlyRate / 4` for 15-minute increments, but you can set any value that fits your business model.
+</Note>
+
+---
+
+## Update Rate
+
+<api method="PUT" endpoint="/api/rates/{id}" />
+
+Update an existing parking rate configuration.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the rate to update.
+</ParamField>
+
+### Request Body
+
+<ParamField body="Description" type="string" required>
+  Updated description of the rate.
+</ParamField>
+
+<ParamField body="VehicleType" type="string" required>
+  Updated vehicle type.
+</ParamField>
+
+<ParamField body="HourlyRate" type="number" required>
+  Updated hourly rate.
+</ParamField>
+
+<ParamField body="FractionRate" type="number" required>
+  Updated fraction rate.
+</ParamField>
+
+<ParamField body="DailyCap" type="number">
+  Updated daily cap (or null for no cap).
+</ParamField>
+
+<ParamField body="GracePeriodMinutes" type="integer" required>
+  Updated grace period in minutes.
+</ParamField>
+
+<ParamField body="IsActive" type="boolean" required>
+  Updated active status.
+</ParamField>
+
+### Response
+
+Returns the updated rate object.
+
+<CodeGroup>
+
+```bash Request
+curl -X PUT https://api.crudpark.com/api/rates/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Description": "Premium Car Rate",
+    "VehicleType": "Car",
+    "HourlyRate": 6.00,
+    "FractionRate": 1.50,
+    "DailyCap": 45.00,
+    "GracePeriodMinutes": 10,
+    "IsActive": true
+  }'
+```
+
+```json Response
+{
+  "RateId": 1,
+  "Description": "Premium Car Rate",
+  "VehicleType": "Car",
+  "HourlyRate": 6.00,
+  "FractionRate": 1.50,
+  "DailyCap": 45.00,
+  "GracePeriodMinutes": 10,
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Rate updated successfully
+- `400 Bad Request` - Invalid request body
+- `404 Not Found` - Rate not found
+
+<Warning>
+  Updating a rate affects all future parking sessions. Consider creating a new rate and setting the old one to inactive instead of modifying existing rates.
+</Warning>
+
+---
+
+## Delete Rate
+
+<api method="DELETE" endpoint="/api/rates/{id}" />
+
+Permanently delete a rate configuration.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the rate to delete.
+</ParamField>
+
+### Response
+
+No content returned on successful deletion.
+
+<CodeGroup>
+
+```bash Request
+curl -X DELETE https://api.crudpark.com/api/rates/1
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `204 No Content` - Rate deleted successfully
+- `404 Not Found` - Rate not found
+
+<Warning>
+  Deleting a rate may affect historical records. Consider setting `IsActive` to `false` instead to preserve historical pricing data.
+</Warning>

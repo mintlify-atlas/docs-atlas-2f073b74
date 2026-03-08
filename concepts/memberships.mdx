@@ -1,0 +1,164 @@
+---
+title: Memberships
+description: Understanding membership lifecycle and management in CrudPark
+---
+
+## Overview
+
+Memberships allow customers to purchase recurring monthly parking access for their vehicles. Each membership is linked to a specific customer, vehicle (by license plate), and has defined start and end dates. The system automatically tracks membership status and sends expiration notifications.
+
+## Membership Entity
+
+The core `Membership` entity represents a monthly parking subscription:
+
+```csharp CrudPark.Core/Entities/Membership.cs
+public class Membership
+{
+    public int MembershipId { get; set; }
+    public int CustomerId { get; set; } 
+    public string LicensePlate { get; set; }
+    public string VehicleType { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public bool IsActive { get; set; }
+
+    // Navigation property: A membership belongs to ONE customer
+    public virtual Customer Customer { get; set; }
+}
+```
+
+### Key Fields
+
+- **MembershipId**: Unique identifier for the membership
+- **CustomerId**: Foreign key linking to the customer who owns this membership
+- **LicensePlate**: Vehicle license plate registered for this membership (max 20 characters)
+- **VehicleType**: Type of vehicle (e.g., "Car", "Motorcycle", "Truck") (max 50 characters)
+- **StartDate**: When the membership becomes active (stored in UTC)
+- **EndDate**: When the membership expires (stored in UTC)
+- **IsActive**: Boolean flag indicating if the membership is currently active
+
+<Note>
+  The system prevents overlapping memberships for the same license plate and vehicle type. When creating or updating a membership, validation ensures no date conflicts exist.
+</Note>
+
+## Membership Lifecycle
+
+### 1. Creation
+
+When creating a new membership using `CreateMembershipDto`:
+
+```csharp CrudPark.Application/DTOs/CreateMembershipDto.cs
+public class CreateMembershipDto
+{
+    [Required]
+    [StringLength(150)]
+    public string CustomerName { get; set; }
+
+    [EmailAddress]
+    [StringLength(100)]
+    public string? CustomerEmail { get; set; }
+
+    [Required]
+    [StringLength(20)]
+    public string LicensePlate { get; set; }
+
+    [Required]
+    [StringLength(50)]
+    public string VehicleType { get; set; }
+
+    [Required]
+    public DateTime StartDate { get; set; }
+
+    [Required]
+    public DateTime EndDate { get; set; }
+}
+```
+
+The system:
+1. Checks for overlapping memberships with the same license plate and vehicle type
+2. Finds existing customer by email or creates a new customer record
+3. Creates the membership with `IsActive = true`
+4. Returns a `MembershipDto` with complete customer information
+
+See `CrudPark.Application/Services/MembershipService.cs:19` for the complete implementation.
+
+### 2. Active Status
+
+Memberships are considered active when:
+- `IsActive` field is `true`
+- Current date falls between `StartDate` and `EndDate`
+
+The system counts active memberships for dashboard metrics and allows membership holders to enter the parking facility as "Membership" type stays.
+
+### 3. Expiration Notifications
+
+The `MembershipExpirationNotifier` background service runs every 24 hours to check for memberships expiring in 3 days:
+
+```csharp CrudPark.Infrastructure/Services/MembershipExpirationNotifier.cs
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        await CheckAndNotifyMemberships();
+        await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+    }
+}
+```
+
+For each expiring membership, if the customer has an email address, the system sends an automated reminder email (see `CrudPark.Infrastructure/Services/MembershipExpirationNotifier.cs:49`).
+
+<Info>
+  The notification system looks for memberships where `EndDate` is exactly 3 days from the current UTC date.
+</Info>
+
+### 4. Deactivation
+
+When deleting a membership through the API, the system performs a "soft delete" by setting `IsActive = false` rather than removing the record from the database. This preserves historical data for reporting purposes (see `CrudPark.Application/Services/MembershipService.cs:131`).
+
+## Data Transfer Objects
+
+### MembershipDto
+
+Returned by API endpoints, includes customer information:
+
+```csharp CrudPark.Application/DTOs/MembershipDto.cs
+public class MembershipDto
+{
+    public int MembershipId { get; set; }
+    public string LicensePlate { get; set; }
+    public string VehicleType { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public bool IsActive { get; set; }
+    public int CustomerId { get; set; }
+    public string CustomerName { get; set; }
+    public string? CustomerEmail { get; set; }
+}
+```
+
+## Related Concepts
+
+<CardGroup cols={2}>
+  <Card title="Stays" icon="car" href="/concepts/stays">
+    Learn how membership holders enter and exit the parking facility
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/memberships">
+    View all membership API endpoints
+  </Card>
+</CardGroup>
+
+## Common Operations
+
+### Check for Active Memberships
+
+The dashboard counts active memberships on the current date:
+- `IMembershipRepository.CountActiveAsync(today)` - Count of memberships where today is between StartDate and EndDate and IsActive is true
+
+### Check for Expiring Memberships
+
+- `IMembershipRepository.CountExpiringSoonAsync(today, soonDate)` - Count of memberships expiring within the next 3 days
+
+### Prevent Overlap Conflicts
+
+Before creating or updating:
+- `IMembershipRepository.FindOverlappingMembershipAsync(licensePlate, vehicleType, startDate, endDate)` validates no conflicts exist

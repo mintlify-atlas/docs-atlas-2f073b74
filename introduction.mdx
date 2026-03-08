@@ -1,0 +1,77 @@
+---
+title: Introduction
+description: Welcome to CrudPark - A comprehensive parking management API built with Clean Architecture
+---
+
+## What is CrudPark?
+
+CrudPark is a modern parking management API built with ASP.NET Core 9.0 and PostgreSQL. It provides a complete solution for managing parking operations, including customer memberships, parking rates, real-time occupancy tracking, and financial reporting.
+
+The API is designed using Clean Architecture principles, ensuring maintainability, testability, and separation of concerns across all layers of the application.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Dashboard Analytics" icon="chart-line">
+    Real-time metrics including vehicles currently inside, occupation percentage, today's income, and membership status tracking
+  </Card>
+  
+  <Card title="Membership Management" icon="id-card">
+    Full CRUD operations for customer memberships with expiration tracking and automated email notifications
+  </Card>
+  
+  <Card title="Dynamic Rate Configuration" icon="dollar-sign">
+    Flexible pricing system supporting different vehicle types, hourly rates, fraction rates, daily caps, and grace periods
+  </Card>
+  
+  <Card title="Comprehensive Reporting" icon="file-chart-column">
+    Export capabilities for daily income reports, occupation statistics, and membership vs guest analysis
+  </Card>
+</CardGroup>
+
+## Core Capabilities
+
+- **Operator Authentication**: Secure operator management with password hashing and active status tracking
+- **Customer Profiles**: Maintain customer information with support for multiple memberships per customer
+- **Stay Tracking**: Monitor vehicle entry/exit with automatic payment calculation
+- **Payment Processing**: Record and track all parking payments with detailed transaction history
+- **Email Notifications**: Automated alerts for expiring memberships using background services
+- **CORS Support**: Pre-configured for integration with frontend applications
+- **Swagger Documentation**: Interactive API documentation available at `/swagger`
+
+## Who Should Use This API?
+
+CrudPark is ideal for:
+
+- **Parking Facility Operators**: Organizations managing parking lots or garages that need automated tracking and billing
+- **Property Management Companies**: Businesses overseeing parking for residential or commercial properties
+- **Software Developers**: Teams building parking management applications who need a robust backend API
+- **System Integrators**: Developers looking to integrate parking management into larger facility management systems
+
+## Technology Stack
+
+- **Framework**: ASP.NET Core 9.0
+- **Database**: PostgreSQL with Entity Framework Core
+- **Architecture**: Clean Architecture with distinct layers (API, Application, Core, Infrastructure)
+- **Email Service**: SMTP integration for notifications
+- **Containerization**: Docker support with Docker Compose
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get CrudPark running locally in minutes
+  </Card>
+  
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture">
+    Understand the Clean Architecture structure
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Explore all available endpoints
+  </Card>
+  
+  <Card title="Dashboard Metrics" icon="gauge" href="/api/dashboard">
+    Learn about real-time dashboard data
+  </Card>
+</CardGroup>

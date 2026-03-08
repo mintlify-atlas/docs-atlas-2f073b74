@@ -1,0 +1,293 @@
+---
+title: "Operators"
+description: "Manage parking lot operators and staff accounts"
+---
+
+The Operators API allows you to manage operator accounts for staff members who operate the parking system.
+
+## Get All Operators
+
+<api method="GET" endpoint="/api/operators" />
+
+Retrieve a list of all operators.
+
+### Response
+
+Returns an array of operator objects.
+
+<ResponseField name="[]" type="array">
+  Array of operator objects with the following fields:
+  
+  <Expandable title="Operator Object">
+    <ResponseField name="OperatorId" type="integer">
+      Unique identifier for the operator.
+    </ResponseField>
+    
+    <ResponseField name="FullName" type="string">
+      Operator's full name.
+    </ResponseField>
+    
+    <ResponseField name="Email" type="string">
+      Operator's email address.
+    </ResponseField>
+    
+    <ResponseField name="IsActive" type="boolean">
+      Whether the operator account is active.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/operators
+```
+
+```json Response
+[
+  {
+    "OperatorId": 1,
+    "FullName": "Alice Johnson",
+    "Email": "alice@crudpark.com",
+    "IsActive": true
+  },
+  {
+    "OperatorId": 2,
+    "FullName": "Bob Williams",
+    "Email": "bob@crudpark.com",
+    "IsActive": true
+  }
+]
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved operators
+
+---
+
+## Create Operator
+
+<api method="POST" endpoint="/api/operators" />
+
+Create a new operator account.
+
+### Request Body
+
+<ParamField body="Password" type="string" required>
+  Initial password for the operator account.
+</ParamField>
+
+<ParamField body="FullName" type="string" required>
+  Operator's full name.
+</ParamField>
+
+<ParamField body="Email" type="string">
+  Operator's email address.
+</ParamField>
+
+### Response
+
+<ResponseField name="OperatorId" type="integer">
+  Unique identifier for the newly created operator.
+</ResponseField>
+
+<ResponseField name="FullName" type="string">
+  Operator's full name.
+</ResponseField>
+
+<ResponseField name="Email" type="string">
+  Operator's email address.
+</ResponseField>
+
+<ResponseField name="IsActive" type="boolean">
+  Whether the operator account is active (defaults to true).
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X POST https://api.crudpark.com/api/operators \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Password": "SecurePass123!",
+    "FullName": "Alice Johnson",
+    "Email": "alice@crudpark.com"
+  }'
+```
+
+```json Response
+{
+  "OperatorId": 1,
+  "FullName": "Alice Johnson",
+  "Email": "alice@crudpark.com",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `201 Created` - Operator created successfully
+- `400 Bad Request` - Invalid request body or validation errors
+
+<Warning>
+  Ensure passwords meet your organization's security requirements. The password is required during creation but is not returned in responses.
+</Warning>
+
+---
+
+## Get Operator by ID
+
+<api method="GET" endpoint="/api/operators/{id}" />
+
+Retrieve details of a specific operator by ID.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the operator.
+</ParamField>
+
+### Response
+
+<ResponseField name="OperatorId" type="integer">
+  Unique identifier for the operator.
+</ResponseField>
+
+<ResponseField name="FullName" type="string">
+  Operator's full name.
+</ResponseField>
+
+<ResponseField name="Email" type="string">
+  Operator's email address.
+</ResponseField>
+
+<ResponseField name="IsActive" type="boolean">
+  Whether the operator account is active.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/operators/1
+```
+
+```json Response
+{
+  "OperatorId": 1,
+  "FullName": "Alice Johnson",
+  "Email": "alice@crudpark.com",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved operator
+- `404 Not Found` - Operator not found
+
+---
+
+## Update Operator
+
+<api method="PUT" endpoint="/api/operators/{id}" />
+
+Update an existing operator's information.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the operator to update.
+</ParamField>
+
+### Request Body
+
+<ParamField body="FullName" type="string" required>
+  Updated full name for the operator.
+</ParamField>
+
+<ParamField body="Email" type="string">
+  Updated email address.
+</ParamField>
+
+<ParamField body="IsActive" type="boolean" required>
+  Whether the operator account should be active.
+</ParamField>
+
+### Response
+
+Returns the updated operator object.
+
+<CodeGroup>
+
+```bash Request
+curl -X PUT https://api.crudpark.com/api/operators/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "FullName": "Alice M. Johnson",
+    "Email": "alice.johnson@crudpark.com",
+    "IsActive": true
+  }'
+```
+
+```json Response
+{
+  "OperatorId": 1,
+  "FullName": "Alice M. Johnson",
+  "Email": "alice.johnson@crudpark.com",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Operator updated successfully
+- `400 Bad Request` - Invalid request body
+- `404 Not Found` - Operator not found with the specified ID
+
+<Note>
+  Use the `IsActive` field to disable operator accounts without deleting them. This preserves audit trails and historical records.
+</Note>
+
+---
+
+## Delete Operator
+
+<api method="DELETE" endpoint="/api/operators/{id}" />
+
+Permanently delete an operator account.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the operator to delete.
+</ParamField>
+
+### Response
+
+No content returned on successful deletion.
+
+<CodeGroup>
+
+```bash Request
+curl -X DELETE https://api.crudpark.com/api/operators/1
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `204 No Content` - Operator deleted successfully
+- `404 Not Found` - Operator not found with the specified ID
+
+<Warning>
+  Deleting an operator is permanent and may affect audit trails. Consider setting `IsActive` to `false` instead.
+</Warning>

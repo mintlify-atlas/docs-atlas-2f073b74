@@ -1,0 +1,182 @@
+---
+title: 'Database Configuration'
+description: 'Configure PostgreSQL database and Entity Framework Core for CrudPark'
+---
+
+## Overview
+
+CrudPark uses PostgreSQL as its database with Entity Framework Core for data access. The database is configured with snake_case naming conventions to follow PostgreSQL best practices.
+
+## PostgreSQL Setup
+
+<Steps>
+  <Step title="Install PostgreSQL">
+    Install PostgreSQL 13 or higher on your server or use a managed PostgreSQL service.
+  </Step>
+  
+  <Step title="Create Database">
+    Create a new database for CrudPark:
+    
+    ```sql
+    CREATE DATABASE Parking_App_JME;
+    ```
+  </Step>
+  
+  <Step title="Configure Connection String">
+    Add your connection string to `appsettings.json`:
+    
+    ```json appsettings.json
+    {
+      "ConnectionStrings": {
+        "DefaultConnection": "Host=localhost;Database=Parking_App_JME;Username=your_user;Password=your_password;Port=5432"
+      }
+    }
+    ```
+    
+    <Warning>
+      Never commit production credentials to source control. Use environment variables or user secrets for sensitive data.
+    </Warning>
+  </Step>
+</Steps>
+
+## Entity Framework Core Configuration
+
+### DbContext Registration
+
+The database context is configured in `Program.cs:34-37` with Npgsql provider and snake_case naming:
+
+```csharp Program.cs
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ParkingDbContext>(options =>
+    options.UseNpgsql(connectionString)
+           .UseSnakeCaseNamingConvention());
+```
+
+### Snake Case Naming Convention
+
+The `.UseSnakeCaseNamingConvention()` extension automatically converts C# PascalCase property names to PostgreSQL snake_case column names:
+
+- `CustomerId` → `customer_id`
+- `FullName` → `full_name`
+- `LicensePlate` → `license_plate`
+
+This is explicitly configured in the `ParkingDbContext` entity configurations (`CrudPark.Infrastructure/Data/ParkingDbContext.cs`).
+
+### Timestamp Behavior
+
+To handle PostgreSQL timestamp compatibility, the following switch is set at application startup in `Program.cs:11`:
+
+```csharp Program.cs
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+```
+
+<Warning>
+  This switch must be set before any database operations to ensure consistent DateTime handling between .NET and PostgreSQL.
+</Warning>
+
+## Database Context
+
+The `ParkingDbContext` class is located in `CrudPark.Infrastructure/Data/ParkingDbContext.cs` and includes the following DbSets:
+
+```csharp ParkingDbContext.cs
+public class ParkingDbContext : DbContext
+{
+    public DbSet<Operator> Operators { get; set; }
+    public DbSet<Customer> Customers { get; set; } 
+    public DbSet<Membership> Memberships { get; set; }
+    public DbSet<Rate> Rates { get; set; }
+    public DbSet<Payment> Payments { get; set; }
+    public DbSet<Stay> Stays { get; set; }
+}
+```
+
+### Entity Configuration
+
+Each entity is explicitly configured with table names and column mappings using Fluent API in the `OnModelCreating` method:
+
+```csharp ParkingDbContext.cs
+modelBuilder.Entity<Operator>(entity =>
+{
+    entity.ToTable("operators");
+    entity.HasKey(e => e.OperatorId);
+    entity.Property(e => e.OperatorId).HasColumnName("operator_id");
+    entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+    entity.Property(e => e.FullName).HasColumnName("full_name");
+    entity.Property(e => e.Email).HasColumnName("email");
+    entity.Property(e => e.IsActive).HasColumnName("is_active");
+    entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+});
+```
+
+## Database Migrations
+
+### Creating Migrations
+
+When you modify entity models, create a new migration:
+
+```bash
+dotnet ef migrations add MigrationName --project CrudPark.Infrastructure --startup-project CrudPark.Api
+```
+
+### Applying Migrations
+
+Apply pending migrations to the database:
+
+<CodeGroup>
+```bash Development
+dotnet ef database update --project CrudPark.Infrastructure --startup-project CrudPark.Api
+```
+
+```bash Production
+# Set connection string via environment variable
+export ConnectionStrings__DefaultConnection="Host=prod-host;Database=Parking_App_JME;Username=prod_user;Password=prod_password;Port=5432"
+
+dotnet ef database update --project CrudPark.Infrastructure --startup-project CrudPark.Api
+```
+</CodeGroup>
+
+### Rolling Back Migrations
+
+Revert to a previous migration:
+
+```bash
+dotnet ef database update PreviousMigrationName --project CrudPark.Infrastructure --startup-project CrudPark.Api
+```
+
+## Connection String Formats
+
+<CodeGroup>
+```json Local Development
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=Parking_App_JME;Username=postgres;Password=postgres;Port=5432"
+  }
+}
+```
+
+```json Docker Compose
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=db;Database=Parking_App_JME;Username=postgres;Password=postgres;Port=5432"
+  }
+}
+```
+
+```json Production
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=prod-server.com;Database=Parking_App_JME;Username=app_user;Password=secure_password;Port=5432;SSL Mode=Require"
+  }
+}
+```
+</CodeGroup>
+
+## Environment Variables
+
+You can override the connection string using environment variables:
+
+```bash
+export ConnectionStrings__DefaultConnection="Host=localhost;Database=Parking_App_JME;Username=postgres;Password=postgres;Port=5432"
+```
+
+The double underscore (`__`) is used to represent nested configuration sections in .NET.

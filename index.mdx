@@ -1,97 +1,112 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to CrudPark"
+description: "A comprehensive parking management system API with membership tracking, payment processing, and reporting capabilities"
 ---
 
-## Setting up
+## Overview
 
-Get your documentation site up and running in minutes.
+CrudPark is a modern parking management system built with ASP.NET Core 9.0 that provides a robust API for managing parking operations. From membership tracking to real-time stay monitoring and comprehensive reporting, CrudPark streamlines parking facility operations with a clean, well-architected solution.
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running with CrudPark in minutes
+  </Card>
+  <Card
+    title="Architecture"
+    icon="sitemap"
+    href="/architecture"
+  >
+    Explore the clean architecture design
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Complete API endpoint documentation
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/database"
+  >
+    Set up database, email, and deployment
+  </Card>
+</CardGroup>
+
+## Key Features
+
+CrudPark offers a comprehensive suite of features designed for modern parking management:
+
+<CardGroup cols={2}>
+  <Card
+    title="Membership Management"
+    icon="id-card"
+    href="/concepts/memberships"
+  >
+    Track memberships with automated expiration notifications via email
+  </Card>
+  <Card
+    title="Stay Tracking"
+    icon="clock"
+    href="/concepts/stays"
+  >
+    Monitor vehicle entries and exits in real-time with precise timestamps
+  </Card>
+  <Card
+    title="Payment Processing"
+    icon="credit-card"
+    href="/concepts/payments"
+  >
+    Handle payments with support for multiple payment methods
+  </Card>
+  <Card
+    title="Operator Management"
+    icon="users"
+    href="/concepts/operators"
+  >
+    Manage parking operators who handle entry, exit, and payment operations
+  </Card>
+  <Card
+    title="Reporting & Analytics"
+    icon="chart-line"
+    href="/api/reports"
+  >
+    Generate daily income, occupation, and membership vs guest reports
+  </Card>
+  <Card
+    title="CSV Export"
+    icon="file-export"
+    href="/api/reports"
+  >
+    Export reports to CSV format for external analysis
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+CrudPark is built with modern technologies and follows clean architecture principles:
+
+- **ASP.NET Core 9.0** - High-performance web framework
+- **Entity Framework Core** - ORM with PostgreSQL support
+- **PostgreSQL** - Reliable relational database
+- **Swagger/OpenAPI** - Interactive API documentation
+- **Clean Architecture** - Layered separation of concerns (API, Application, Core, Infrastructure)
+- **Docker** - Containerized deployment support
+
+## Get Started
+
+Ready to integrate CrudPark into your parking facility? Start with our quickstart guide to set up the API and make your first request.
 
 <Card
-  title="Start here"
-  icon="rocket"
+  title="Quickstart Guide"
+  icon="play"
   href="/quickstart"
   horizontal
 >
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+  Follow our step-by-step guide to get CrudPark running locally
 </Card>

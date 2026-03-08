@@ -1,0 +1,227 @@
+---
+title: 'Authentication'
+description: 'Authentication and security configuration for the CrudPark API'
+---
+
+## Current Authentication Status
+
+<Warning>
+The CrudPark API currently does **not** implement authentication or authorization. All endpoints are publicly accessible without requiring authentication tokens or credentials.
+</Warning>
+
+Based on the analysis of `Program.cs`, no authentication middleware is configured:
+
+- No `AddAuthentication()` or `AddAuthorization()` services
+- No `UseAuthentication()` or `UseAuthorization()` middleware
+- No `[Authorize]` attributes on controllers or endpoints
+- Controllers are open to public access
+
+## Security Considerations
+
+### CORS Protection
+
+While authentication is not implemented, the API does enforce CORS (Cross-Origin Resource Sharing) restrictions to limit which origins can access the API.
+
+#### Allowed Origins
+
+```csharp Program.cs:24-26
+policy.WithOrigins(
+    "https://crudpark.netlify.app", "http://localhost:5173"
+)
+```
+
+Only requests from these origins are permitted:
+
+<ParamField header="Origin" type="string" required>
+  Must be either:
+  - `https://crudpark.netlify.app` (Production)
+  - `http://localhost:5173` (Local development)
+</ParamField>
+
+#### CORS Configuration Details
+
+```csharp Program.cs:27-29
+.AllowAnyHeader()
+.AllowAnyMethod()
+.AllowCredentials();
+```
+
+- **Headers**: All HTTP headers are allowed
+- **Methods**: All HTTP methods (GET, POST, PUT, DELETE, etc.) are allowed
+- **Credentials**: Cookie and authorization headers are supported
+
+### HTTPS Redirection
+
+The API enforces HTTPS redirection in production:
+
+```csharp Program.cs:73
+app.UseHttpsRedirection();
+```
+
+HTTP requests are automatically redirected to HTTPS for secure communication.
+
+## Making Requests
+
+### Request Headers
+
+Since no authentication is required, you only need standard HTTP headers:
+
+```bash
+curl -X GET "http://localhost:5268/api/operators" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json"
+```
+
+### Example Requests
+
+#### GET Request
+
+```bash
+curl -X GET "https://localhost:7223/api/memberships" \
+  -H "Accept: application/json"
+```
+
+#### POST Request
+
+```bash
+curl -X POST "https://localhost:7223/api/operators" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "Admin"
+  }'
+```
+
+#### PUT Request
+
+```bash
+curl -X PUT "https://localhost:7223/api/rates/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "hourlyRate": 5.00,
+    "dailyRate": 25.00
+  }'
+```
+
+#### DELETE Request
+
+```bash
+curl -X DELETE "https://localhost:7223/api/memberships/1"
+```
+
+## Future Authentication Recommendations
+
+<Note>
+For production deployment, it is strongly recommended to implement authentication and authorization.
+</Note>
+
+### Recommended Implementation
+
+Consider implementing one of the following authentication strategies:
+
+#### 1. JWT (JSON Web Tokens)
+
+Ideal for stateless authentication in a SPA (Single Page Application) setup:
+
+```csharp
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options => {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true
+        };
+    });
+```
+
+**Usage**: Clients would send tokens in the Authorization header:
+
+```bash
+curl -X GET "https://api.example.com/api/operators" \
+  -H "Authorization: Bearer <jwt_token>"
+```
+
+#### 2. API Keys
+
+Simple authentication for internal or partner integrations:
+
+```csharp
+services.AddAuthentication("ApiKey")
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>("ApiKey", options => { });
+```
+
+**Usage**: Clients would send API keys in a custom header:
+
+```bash
+curl -X GET "https://api.example.com/api/operators" \
+  -H "X-API-Key: <api_key>"
+```
+
+#### 3. OAuth 2.0 / OpenID Connect
+
+For third-party authentication (Google, Microsoft, etc.):
+
+```csharp
+builder.Services.AddAuthentication()
+    .AddGoogle(options => {
+        options.ClientId = configuration["Authentication:Google:ClientId"];
+        options.ClientSecret = configuration["Authentication:Google:ClientSecret"];
+    });
+```
+
+### Role-Based Access Control (RBAC)
+
+Once authentication is implemented, add authorization policies:
+
+```csharp
+builder.Services.AddAuthorization(options => {
+    options.AddPolicy("RequireAdminRole", policy => 
+        policy.RequireRole("Admin"));
+    options.AddPolicy("RequireOperatorRole", policy => 
+        policy.RequireRole("Operator", "Admin"));
+});
+```
+
+Then protect endpoints with attributes:
+
+```csharp
+[Authorize(Policy = "RequireAdminRole")]
+[HttpDelete("{id}")]
+public async Task<IActionResult> DeleteOperator(int id) { ... }
+```
+
+## Security Best Practices
+
+When implementing authentication, follow these best practices:
+
+1. **Use HTTPS**: Always use HTTPS in production (already configured)
+2. **Secure Token Storage**: Store tokens securely (HttpOnly cookies or secure storage)
+3. **Token Expiration**: Implement token expiration and refresh mechanisms
+4. **Rate Limiting**: Add rate limiting to prevent abuse
+5. **Input Validation**: Validate all input (ModelState validation already in use)
+6. **SQL Injection Protection**: Use parameterized queries (Entity Framework handles this)
+7. **Audit Logging**: Log authentication attempts and sensitive operations
+
+## Testing Without Authentication
+
+Since authentication is not currently required, you can test all endpoints directly:
+
+```bash
+# Get all memberships
+curl http://localhost:5268/api/memberships
+
+# Create a new rate
+curl -X POST http://localhost:5268/api/rates \
+  -H "Content-Type: application/json" \
+  -d '{"hourlyRate": 3.50, "dailyRate": 20.00}'
+
+# Get dashboard metrics
+curl http://localhost:5268/api/dashboard/metrics
+```
+
+<Warning>
+**Important**: The lack of authentication means all data is publicly accessible. This setup is suitable for development only and should not be used in production without implementing proper authentication.
+</Warning>

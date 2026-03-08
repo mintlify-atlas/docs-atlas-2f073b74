@@ -1,80 +1,185 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get CrudPark up and running in minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, ensure you have the following installed:
 
-### Step 1: Set up your local environment
+- **.NET 9 SDK** - [Download here](https://dotnet.microsoft.com/download/dotnet/9.0)
+- **PostgreSQL** - Version 12 or higher
+- **Docker** (optional) - For containerized deployment
+- **Git** - To clone the repository
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the CrudPark repository to your local machine:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    git clone https://github.com/yourusername/crudpark.git
+    cd crudpark
+    ```
+  </Step>
+
+  <Step title="Configure Database Connection">
+    Update the connection string in `CrudPark.Api/appsettings.json` to point to your PostgreSQL instance:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ```json CrudPark.Api/appsettings.json
+    {
+      "ConnectionStrings": {
+        "DefaultConnection": "Host=localhost;Database=CrudPark;Username=postgres;Password=yourpassword;Port=5432"
+      },
+      "AppSettings": {
+        "TotalParkingSpaces": 150
+      }
+    }
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <Note>
+      The `TotalParkingSpaces` setting is used to calculate occupation percentages in dashboard metrics.
+    </Note>
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Apply Database Migrations">
+    Create the database schema using Entity Framework Core migrations:
+    
+    <CodeGroup>
+    ```bash Terminal
+    cd CrudPark.Api
+    dotnet ef database update
+    ```
+    
+    ```bash Using dotnet-ef tool (if not installed)
+    dotnet tool install --global dotnet-ef
+    dotnet ef database update --project CrudPark.Api
+    ```
+    </CodeGroup>
+    
+    This will create all necessary tables including `operators`, `customers`, `memberships`, `rates`, `payments`, and `stays`.
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Configure Email Settings (Optional)">
+    If you want to enable membership expiration notifications, configure SMTP settings in `appsettings.json`:
+    
+    ```json CrudPark.Api/appsettings.json
+    {
+      "SmtpSettings": {
+        "Host": "smtp.gmail.com",
+        "Port": 587,
+        "Username": "your-email@gmail.com",
+        "Password": "your-app-password",
+        "FromEmail": "noreply@crudpark.com",
+        "FromName": "CrudPark System"
+      }
+    }
+    ```
+    
+    <Warning>
+      Never commit sensitive credentials to version control. Use environment variables or secret management tools in production.
+    </Warning>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Run the Application">
+    Start the API server:
+    
+    <CodeGroup>
+    ```bash Development Mode
+    dotnet run --project CrudPark.Api
+    ```
+    
+    ```bash Production Build
+    dotnet build -c Release
+    dotnet run --project CrudPark.Api --configuration Release
+    ```
+    
+    ```bash Using Docker
+    docker build -t crudpark-api .
+    docker run -p 8080:8080 crudpark-api
+    ```
+    </CodeGroup>
+    
+    The API will start on `https://localhost:5001` (or `http://localhost:5000`).
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Verify Installation">
+    Test the API by making your first request to the dashboard metrics endpoint:
+    
+    ```bash cURL
+    curl -X GET "https://localhost:5001/api/dashboard/metrics" -k
+    ```
+    
+    ```http HTTP Request
+    GET /api/dashboard/metrics HTTP/1.1
+    Host: localhost:5001
+    ```
+    
+    Expected response:
+    
+    ```json Response
+    {
+      "vehiclesCurrentlyInside": 0,
+      "occupationPercentage": 0.0,
+      "incomeToday": 0.0,
+      "membershipsActive": 0,
+      "membershipsExpiringSoon": 0,
+      "membershipsExpired": 0
+    }
+    ```
+  </Step>
+</Steps>
 
-## Next steps
+## Access Swagger Documentation
 
-Now that you have your docs running, explore these key features:
+Once the API is running, you can explore all endpoints interactively:
+
+1. Navigate to `https://localhost:5001/swagger` in your browser
+2. The Swagger UI displays all available endpoints organized by controller
+3. Test endpoints directly from the interface
+
+<Info>
+  Swagger is enabled in all environments by default. See `CrudPark.Api/Program.cs:70-71` for configuration.
+</Info>
+
+## Docker Compose Deployment
+
+For a simplified deployment, use the provided `compose.yaml`:
+
+```bash
+docker-compose up --build
+```
+
+This will:
+- Build the CrudPark API image
+- Start the container on port 3000
+- Set the environment to Production
+
+## CORS Configuration
+
+The API is pre-configured with CORS support for:
+- `https://crudpark.netlify.app` (production frontend)
+- `http://localhost:5173` (local development frontend)
+
+See `CrudPark.Api/Program.cs:20-31` to modify allowed origins.
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture">
+    Learn about the Clean Architecture structure
+  </Card>
+  
+  <Card title="Dashboard API" icon="gauge" href="/api/dashboard">
+    Explore dashboard metrics endpoint
+  </Card>
+  
+  <Card title="Operators" icon="user-gear" href="/api/operators">
+    Manage parking operators
+  </Card>
+  
+  <Card title="Memberships" icon="id-card" href="/api/memberships">
+    Handle customer memberships
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

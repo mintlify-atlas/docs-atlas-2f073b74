@@ -1,0 +1,221 @@
+---
+title: Payments
+description: Processing and tracking payments for guest parking stays
+---
+
+## Overview
+
+**Payments** represent financial transactions for guest parking stays. When a non-member vehicle exits the parking facility, the system calculates charges based on the stay duration and configured rates, then creates a payment record to track the transaction.
+
+## Payment Entity
+
+The `Payment` entity stores all payment transaction details:
+
+```csharp CrudPark.Core/Entities/Payment.cs
+public class Payment
+{
+    public int PaymentId { get; set; }
+    public int StayId { get; set; } // FK to Stays table
+    public decimal Amount { get; set; }
+    public DateTime PaymentTimestamp { get; set; }
+    public string PaymentMethod { get; set; }
+    public int OperatorId { get; set; }
+
+    public virtual Stay Stay { get; set; } 
+    public virtual Operator Operator { get; set; } 
+}
+```
+
+### Key Fields
+
+- **PaymentId**: Unique identifier for this payment transaction
+- **StayId**: Foreign key linking this payment to the specific parking stay
+- **Amount**: Total payment amount in decimal format (e.g., 15000.00 for Colombian pesos)
+- **PaymentTimestamp**: Exact date and time when the payment was processed
+- **PaymentMethod**: How the customer paid (e.g., "Cash", "Credit Card", "Debit Card", "Mobile Payment")
+- **OperatorId**: ID of the operator who processed this payment
+
+<Note>
+  Each payment is linked to exactly one stay. Membership-type stays do not generate payments since members have pre-paid access.
+</Note>
+
+## Payment Workflow
+
+### 1. Stay Completion
+
+Payments are created when a guest vehicle exits:
+
+1. **Exit Processing**: Operator processes vehicle exit (see [Stays](/concepts/stays))
+2. **Duration Calculation**: System calculates `ExitTimestamp - EntryTimestamp`
+3. **Rate Application**: System looks up applicable rates for the vehicle type
+4. **Amount Calculation**: System computes total charges based on duration and rates
+5. **Payment Creation**: New payment record is created and linked to the stay
+
+### 2. Payment Methods
+
+The system supports multiple payment methods:
+
+- **Cash**: Physical currency payment
+- **Credit Card**: Credit card transaction
+- **Debit Card**: Debit card transaction  
+- **Mobile Payment**: Digital wallet or mobile payment app
+
+The `PaymentMethod` field stores the selected method as a string.
+
+<Info>
+  The system does not directly process card transactions. The `PaymentMethod` field is for record-keeping purposes, tracking how customers choose to pay.
+</Info>
+
+### 3. Operator Tracking
+
+Every payment includes the `OperatorId` of the operator who:
+- Processed the vehicle exit
+- Calculated the charges
+- Collected the payment
+- Created the payment record
+
+This creates an audit trail for financial accountability (see `CrudPark.Core/Entities/Payment.cs:14`).
+
+## Payment Calculation
+
+Payment amounts are calculated based on:
+
+1. **Stay Duration**: Time between entry and exit
+2. **Vehicle Type**: Different rates for cars, motorcycles, trucks, etc.
+3. **Rate Configuration**: Hourly, daily, or tiered pricing
+
+The rate calculation logic is managed through the `RateService` and configured via the Rates API.
+
+### Example Calculation
+
+```plaintext
+Vehicle Type: Car
+Entry: 2026-03-08 10:00:00
+Exit: 2026-03-08 14:30:00
+Duration: 4.5 hours
+Rate: 3000 pesos/hour
+Amount: 4.5 × 3000 = 13,500 pesos
+```
+
+A payment record is created:
+
+```csharp
+{
+  "PaymentId": 456,
+  "StayId": 123,
+  "Amount": 13500.00,
+  "PaymentTimestamp": "2026-03-08T14:30:00Z",
+  "PaymentMethod": "Cash",
+  "OperatorId": 7
+}
+```
+
+## Payment Analytics
+
+### Daily Income Tracking
+
+The system tracks total income per day for financial reporting:
+
+```csharp Dashboard Service
+public async Task<decimal> GetTotalIncomeForDateAsync(DateTime date)
+```
+
+This method sums all payment amounts where `PaymentTimestamp` falls on the specified date. The dashboard displays today's total income in real-time (see `CrudPark.Application/Services/DashboardService.cs:37`).
+
+### Income Reports
+
+The Reports API provides detailed income analysis:
+
+- **Daily Income Report**: Shows income breakdown by date over a date range
+- **Membership vs Guest Report**: Compares revenue from guest payments vs membership subscriptions
+- **Operator Performance**: Tracks payment processing by operator
+
+These reports query the `Payments` table filtered by `PaymentTimestamp` and joined with `Stays` for additional context (see `CrudPark.Application/Services/ReportsService.cs:22`).
+
+### Export Functionality
+
+Income data can be exported to CSV format for external analysis:
+
+```http
+GET /api/reports/daily-income/export/csv?startDate=2026-03-01&endDate=2026-03-31
+```
+
+The export includes payment details, stay information, and operator data.
+
+## Payment Relationships
+
+### Link to Stays
+
+Each payment is connected to a stay through the `StayId` foreign key:
+
+```csharp
+public virtual Stay Stay { get; set; }
+```
+
+This navigation property allows querying:
+- License plate from the stay
+- Entry and exit timestamps
+- Stay type and vehicle type
+- Entry and exit operators
+
+### Link to Operators
+
+Each payment records the processing operator:
+
+```csharp
+public virtual Operator Operator { get; set; }
+```
+
+This enables:
+- Operator performance tracking
+- Shift-based revenue reporting
+- Financial audit trails
+
+## Common Operations
+
+### Query Today's Income
+
+```csharp
+var today = DateTime.UtcNow.Date;
+var incomeToday = await _paymentRepo.GetTotalIncomeForDateAsync(today);
+```
+
+### Find Payments for a Stay
+
+```csharp
+var payment = await _context.Payments
+    .FirstOrDefaultAsync(p => p.StayId == stayId);
+```
+
+### List Payments by Operator
+
+```csharp
+var operatorPayments = await _context.Payments
+    .Where(p => p.OperatorId == operatorId)
+    .Include(p => p.Stay)
+    .ToListAsync();
+```
+
+## Best Practices
+
+<Info>
+  **Timestamps**: All payment timestamps should be stored in UTC to ensure consistent reporting across timezones.
+</Info>
+
+<Note>
+  **Audit Trail**: Never delete payment records. Keep complete payment history for financial compliance and reporting.
+</Note>
+
+## Related Concepts
+
+<CardGroup cols={3}>
+  <Card title="Stays" icon="car" href="/concepts/stays">
+    Learn how stays generate payments
+  </Card>
+  <Card title="Operators" icon="user" href="/concepts/operators">
+    Understand operator payment processing
+  </Card>
+  <Card title="Reports API" icon="chart-line" href="/api/reports">
+    View income reporting endpoints
+  </Card>
+</CardGroup>

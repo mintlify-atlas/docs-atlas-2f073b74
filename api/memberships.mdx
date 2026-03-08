@@ -1,0 +1,395 @@
+---
+title: "Memberships"
+description: "Manage parking memberships for registered customers"
+---
+
+The Memberships API allows you to create, retrieve, update, and delete parking membership records for customers with recurring parking needs.
+
+## Create Membership
+
+<api method="POST" endpoint="/api/memberships" />
+
+Create a new parking membership for a customer.
+
+### Request Body
+
+<ParamField body="CustomerName" type="string" required>
+  Full name of the customer. Maximum 150 characters.
+</ParamField>
+
+<ParamField body="CustomerEmail" type="string">
+  Customer's email address. Must be a valid email format. Maximum 100 characters.
+</ParamField>
+
+<ParamField body="LicensePlate" type="string" required>
+  Vehicle license plate number. Maximum 20 characters.
+</ParamField>
+
+<ParamField body="VehicleType" type="string" required>
+  Type of vehicle (e.g., "Car", "Motorcycle", "Truck"). Maximum 50 characters.
+</ParamField>
+
+<ParamField body="StartDate" type="string" required>
+  Membership start date in ISO 8601 format.
+</ParamField>
+
+<ParamField body="EndDate" type="string" required>
+  Membership end date in ISO 8601 format.
+</ParamField>
+
+### Response
+
+<ResponseField name="MembershipId" type="integer">
+  Unique identifier for the membership.
+</ResponseField>
+
+<ResponseField name="CustomerId" type="integer">
+  Unique identifier for the customer.
+</ResponseField>
+
+<ResponseField name="CustomerName" type="string">
+  Customer's full name.
+</ResponseField>
+
+<ResponseField name="CustomerEmail" type="string">
+  Customer's email address.
+</ResponseField>
+
+<ResponseField name="LicensePlate" type="string">
+  Vehicle license plate number.
+</ResponseField>
+
+<ResponseField name="VehicleType" type="string">
+  Type of vehicle.
+</ResponseField>
+
+<ResponseField name="StartDate" type="string">
+  Membership start date.
+</ResponseField>
+
+<ResponseField name="EndDate" type="string">
+  Membership end date.
+</ResponseField>
+
+<ResponseField name="IsActive" type="boolean">
+  Indicates whether the membership is currently active.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X POST https://api.crudpark.com/api/memberships \
+  -H "Content-Type: application/json" \
+  -d '{
+    "CustomerName": "John Doe",
+    "CustomerEmail": "john.doe@example.com",
+    "LicensePlate": "ABC-1234",
+    "VehicleType": "Car",
+    "StartDate": "2026-03-08T00:00:00Z",
+    "EndDate": "2026-06-08T00:00:00Z"
+  }'
+```
+
+```json Response
+{
+  "MembershipId": 1,
+  "CustomerId": 42,
+  "CustomerName": "John Doe",
+  "CustomerEmail": "john.doe@example.com",
+  "LicensePlate": "ABC-1234",
+  "VehicleType": "Car",
+  "StartDate": "2026-03-08T00:00:00Z",
+  "EndDate": "2026-06-08T00:00:00Z",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `201 Created` - Membership created successfully
+- `400 Bad Request` - Invalid request body or validation errors
+- `409 Conflict` - Membership already exists for this customer/vehicle combination
+
+<Warning>
+  Ensure the `EndDate` is after the `StartDate`. The API returns a conflict error if a membership already exists for the same license plate with overlapping dates.
+</Warning>
+
+---
+
+## Get All Memberships
+
+<api method="GET" endpoint="/api/memberships" />
+
+Retrieve a list of all memberships.
+
+### Response
+
+Returns an array of membership objects.
+
+<ResponseField name="[]" type="array">
+  Array of membership objects with the following fields:
+  
+  <Expandable title="Membership Object">
+    <ResponseField name="MembershipId" type="integer">
+      Unique identifier for the membership.
+    </ResponseField>
+    
+    <ResponseField name="CustomerId" type="integer">
+      Unique identifier for the customer.
+    </ResponseField>
+    
+    <ResponseField name="CustomerName" type="string">
+      Customer's full name.
+    </ResponseField>
+    
+    <ResponseField name="CustomerEmail" type="string">
+      Customer's email address.
+    </ResponseField>
+    
+    <ResponseField name="LicensePlate" type="string">
+      Vehicle license plate number.
+    </ResponseField>
+    
+    <ResponseField name="VehicleType" type="string">
+      Type of vehicle.
+    </ResponseField>
+    
+    <ResponseField name="StartDate" type="string">
+      Membership start date.
+    </ResponseField>
+    
+    <ResponseField name="EndDate" type="string">
+      Membership end date.
+    </ResponseField>
+    
+    <ResponseField name="IsActive" type="boolean">
+      Whether the membership is active.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/memberships
+```
+
+```json Response
+[
+  {
+    "MembershipId": 1,
+    "CustomerId": 42,
+    "CustomerName": "John Doe",
+    "CustomerEmail": "john.doe@example.com",
+    "LicensePlate": "ABC-1234",
+    "VehicleType": "Car",
+    "StartDate": "2026-03-08T00:00:00Z",
+    "EndDate": "2026-06-08T00:00:00Z",
+    "IsActive": true
+  },
+  {
+    "MembershipId": 2,
+    "CustomerId": 43,
+    "CustomerName": "Jane Smith",
+    "CustomerEmail": "jane.smith@example.com",
+    "LicensePlate": "XYZ-9876",
+    "VehicleType": "Motorcycle",
+    "StartDate": "2026-01-01T00:00:00Z",
+    "EndDate": "2026-12-31T00:00:00Z",
+    "IsActive": true
+  }
+]
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved memberships
+
+---
+
+## Get Membership by ID
+
+<api method="GET" endpoint="/api/memberships/{id}" />
+
+Retrieve details of a specific membership by ID.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the membership.
+</ParamField>
+
+### Response
+
+<ResponseField name="MembershipId" type="integer">
+  Unique identifier for the membership.
+</ResponseField>
+
+<ResponseField name="CustomerId" type="integer">
+  Unique identifier for the customer.
+</ResponseField>
+
+<ResponseField name="CustomerName" type="string">
+  Customer's full name.
+</ResponseField>
+
+<ResponseField name="CustomerEmail" type="string">
+  Customer's email address.
+</ResponseField>
+
+<ResponseField name="LicensePlate" type="string">
+  Vehicle license plate number.
+</ResponseField>
+
+<ResponseField name="VehicleType" type="string">
+  Type of vehicle.
+</ResponseField>
+
+<ResponseField name="StartDate" type="string">
+  Membership start date.
+</ResponseField>
+
+<ResponseField name="EndDate" type="string">
+  Membership end date.
+</ResponseField>
+
+<ResponseField name="IsActive" type="boolean">
+  Whether the membership is active.
+</ResponseField>
+
+<CodeGroup>
+
+```bash Request
+curl -X GET https://api.crudpark.com/api/memberships/1
+```
+
+```json Response
+{
+  "MembershipId": 1,
+  "CustomerId": 42,
+  "CustomerName": "John Doe",
+  "CustomerEmail": "john.doe@example.com",
+  "LicensePlate": "ABC-1234",
+  "VehicleType": "Car",
+  "StartDate": "2026-03-08T00:00:00Z",
+  "EndDate": "2026-06-08T00:00:00Z",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Successfully retrieved membership
+- `404 Not Found` - Membership not found
+
+---
+
+## Update Membership
+
+<api method="PUT" endpoint="/api/memberships/{id}" />
+
+Update an existing membership's dates and active status.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the membership to update.
+</ParamField>
+
+### Request Body
+
+<ParamField body="StartDate" type="string" required>
+  Updated membership start date in ISO 8601 format.
+</ParamField>
+
+<ParamField body="EndDate" type="string" required>
+  Updated membership end date in ISO 8601 format.
+</ParamField>
+
+<ParamField body="IsActive" type="boolean" required>
+  Whether the membership should be active.
+</ParamField>
+
+### Response
+
+Returns the updated membership object with all fields.
+
+<CodeGroup>
+
+```bash Request
+curl -X PUT https://api.crudpark.com/api/memberships/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "StartDate": "2026-03-08T00:00:00Z",
+    "EndDate": "2026-09-08T00:00:00Z",
+    "IsActive": true
+  }'
+```
+
+```json Response
+{
+  "MembershipId": 1,
+  "CustomerId": 42,
+  "CustomerName": "John Doe",
+  "CustomerEmail": "john.doe@example.com",
+  "LicensePlate": "ABC-1234",
+  "VehicleType": "Car",
+  "StartDate": "2026-03-08T00:00:00Z",
+  "EndDate": "2026-09-08T00:00:00Z",
+  "IsActive": true
+}
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `200 OK` - Membership updated successfully
+- `400 Bad Request` - Invalid request body or validation errors
+- `404 Not Found` - Membership not found
+- `409 Conflict` - Update would create an invalid state (e.g., overlapping dates with another membership)
+
+<Note>
+  You can use the `IsActive` field to temporarily disable a membership without deleting it.
+</Note>
+
+---
+
+## Delete Membership
+
+<api method="DELETE" endpoint="/api/memberships/{id}" />
+
+Permanently delete a membership.
+
+### Path Parameters
+
+<ParamField path="id" type="integer" required>
+  The unique identifier of the membership to delete.
+</ParamField>
+
+### Response
+
+No content returned on successful deletion.
+
+<CodeGroup>
+
+```bash Request
+curl -X DELETE https://api.crudpark.com/api/memberships/1
+```
+
+</CodeGroup>
+
+### Status Codes
+
+- `204 No Content` - Membership deleted successfully
+- `404 Not Found` - Membership not found
+
+<Warning>
+  This operation is permanent and cannot be undone. Consider setting `IsActive` to `false` instead if you need to preserve historical records.
+</Warning>

@@ -1,0 +1,284 @@
+---
+title: Operators
+description: Managing parking facility staff and their access to the system
+---
+
+## Overview
+
+**Operators** are the parking facility staff members who manage day-to-day operations. They handle vehicle entries and exits, process payments, and interact with the CrudPark system to track all parking activities. Each operator has individual login credentials and their actions are tracked for accountability.
+
+## Operator Entity
+
+The `Operator` entity represents a staff member:
+
+```csharp CrudPark.Core/Entities/Operator.cs
+public class Operator
+{
+    public int OperatorId { get; set; }
+    public string PasswordHash { get; set; } 
+    public string FullName { get; set; }
+    public string? Email { get; set; } 
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+```
+
+### Key Fields
+
+- **OperatorId**: Unique identifier for this operator
+- **PasswordHash**: Securely hashed password for authentication (never stored in plain text)
+- **FullName**: Operator's full name for display and reporting
+- **Email**: Optional email address for notifications and account recovery
+- **IsActive**: Boolean flag indicating if the operator can currently log in and perform operations
+- **CreatedAt**: Timestamp when the operator account was created
+
+<Note>
+  Passwords are always hashed before storage. The system never stores or returns plain-text passwords through the API.
+</Note>
+
+## Operator Roles and Responsibilities
+
+### Vehicle Entry Management
+
+When a vehicle arrives, operators:
+
+1. Scan or manually enter the vehicle's license plate
+2. Check if an active membership exists
+3. Record the vehicle type
+4. Create a new stay record with their operator ID as `EntryOperatorId`
+5. Open the entry gate
+
+The operator's ID is permanently recorded on the stay, creating an audit trail of who admitted each vehicle (see [Stays](/concepts/stays)).
+
+### Vehicle Exit Management
+
+When a vehicle leaves, operators:
+
+1. Scan or manually enter the license plate
+2. Find the active stay (where `ExitTimestamp` is null)
+3. Record the current timestamp as the exit time
+4. Update the stay with their operator ID as `ExitOperatorId`
+5. For guest stays:
+   - Calculate charges based on duration and rates
+   - Process payment
+   - Create payment record with their operator ID
+6. Open the exit gate
+
+### Payment Processing
+
+For guest vehicle exits, operators:
+
+- Inform the customer of the charges
+- Accept payment via cash, card, or mobile payment
+- Record the payment method
+- Create a payment record linked to the stay
+
+Every payment includes the `OperatorId` for financial accountability (see [Payments](/concepts/payments)).
+
+## Operator Data Transfer Objects
+
+### OperatorDto
+
+Returned by API endpoints (excludes sensitive password information):
+
+```csharp CrudPark.Application/DTOs/OperatorDto.cs
+public class OperatorDto
+{
+    public int OperatorId { get; set; }
+    public string FullName { get; set; }
+    public string? Email { get; set; }
+    public bool IsActive { get; set; }
+}
+```
+
+### CreateOperatorDto
+
+Used when creating new operator accounts:
+
+- Includes `FullName`, `Email`, and `Password` (plain text, hashed on the server)
+- Password should meet security requirements (minimum length, complexity)
+
+### UpdateOperatorDto
+
+Used when updating existing operators:
+
+- Can update `FullName`, `Email`, and `IsActive` status
+- Password changes are handled separately for security
+
+## Operator Lifecycle
+
+### 1. Creation
+
+When a new operator is hired:
+
+1. Admin creates operator account via `POST /api/operators`
+2. System hashes the provided password
+3. Sets `IsActive = true` by default
+4. Records `CreatedAt` timestamp
+5. Returns the new operator's ID
+
+See `CrudPark.Api/Controllers/OperatorsController.cs:28` for the creation endpoint.
+
+### 2. Active Status
+
+Active operators (`IsActive = true`) can:
+- Log in to the system
+- Process vehicle entries and exits
+- Handle payments
+- Access reporting features
+
+### 3. Deactivation
+
+When an operator leaves or needs to be suspended:
+
+1. Admin updates operator via `PUT /api/operators/{id}`
+2. Sets `IsActive = false`
+3. Operator can no longer log in
+4. Historical records remain intact (all stays and payments they processed are preserved)
+
+See `CrudPark.Api/Controllers/OperatorsController.cs:53` for the update endpoint.
+
+<Info>
+  Deactivating an operator does not delete their historical activity. All stays and payments they processed remain linked to their operator ID for audit purposes.
+</Info>
+
+### 4. Deletion
+
+The system supports deleting operators via `DELETE /api/operators/{id}`. However, consider:
+
+- Deleting operators who have processed stays or payments may break foreign key relationships
+- Soft deletion (setting `IsActive = false`) is recommended instead
+- If hard deletion is required, ensure no active stays or payments reference the operator
+
+## Operator Tracking and Accountability
+
+### Entry/Exit Accountability
+
+Every stay records both:
+- **EntryOperatorId**: Who admitted the vehicle
+- **ExitOperatorId**: Who processed the departure
+
+This dual tracking enables:
+- Shift-based reporting (who worked when)
+- Performance metrics (entries/exits per operator)
+- Dispute resolution (who was on duty)
+
+### Payment Accountability
+
+Every payment records:
+- **OperatorId**: Who processed the payment
+
+This enables:
+- Financial auditing (tracking cash handling)
+- Revenue per operator reporting
+- Discrepancy investigation
+
+### Reporting and Analytics
+
+Operator data is used in various reports:
+- Daily activity by operator
+- Revenue processed by operator
+- Average processing time per operator
+- Shift-based occupation analysis
+
+## Security Considerations
+
+### Password Storage
+
+The system uses secure password hashing:
+- Plain-text passwords are never stored
+- Hashes are one-way (cannot be reversed)
+- Password validation compares hashes, not plain text
+
+<Note>
+  The `PasswordHash` field in `CrudPark.Core/Entities/Operator.cs:6` contains the hashed password. Never attempt to read or compare this field directly in application logic.
+</Note>
+
+### Authentication
+
+While the current entity structure includes `PasswordHash`, the authentication flow should:
+
+1. Accept username/email and password via login endpoint
+2. Hash the provided password
+3. Compare against stored `PasswordHash`
+4. Generate authentication token (JWT or session)
+5. Return token to client
+
+See the [API Authentication](/api/authentication) documentation for implementation details.
+
+### Access Control
+
+- Only administrators should access operator management endpoints
+- Operators should only see their own profile information
+- Operator creation and deactivation should be restricted to admin users
+
+## Common Operations
+
+### List All Operators
+
+```http
+GET /api/operators
+```
+
+Returns all operators (active and inactive) with their details (see `CrudPark.Api/Controllers/OperatorsController.cs:19`).
+
+### Get Operator by ID
+
+```http
+GET /api/operators/{id}
+```
+
+Returns a specific operator's details (see `CrudPark.Api/Controllers/OperatorsController.cs:40`).
+
+### Create New Operator
+
+```http
+POST /api/operators
+Content-Type: application/json
+
+{
+  "fullName": "Maria Garcia",
+  "email": "maria.garcia@crudpark.com",
+  "password": "SecurePass123!"
+}
+```
+
+### Update Operator
+
+```http
+PUT /api/operators/{id}
+Content-Type: application/json
+
+{
+  "fullName": "Maria Garcia Lopez",
+  "email": "maria.garcialopez@crudpark.com",
+  "isActive": true
+}
+```
+
+### Deactivate Operator
+
+```http
+PUT /api/operators/{id}
+Content-Type: application/json
+
+{
+  "fullName": "Maria Garcia Lopez",
+  "email": "maria.garcialopez@crudpark.com",
+  "isActive": false
+}
+```
+
+## Related Concepts
+
+<CardGroup cols={3}>
+  <Card title="Stays" icon="car" href="/concepts/stays">
+    See how operators manage vehicle entries and exits
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/concepts/payments">
+    Learn about operator payment processing
+  </Card>
+  <Card title="Operators API" icon="code" href="/api/operators">
+    View all operator API endpoints
+  </Card>
+</CardGroup>
