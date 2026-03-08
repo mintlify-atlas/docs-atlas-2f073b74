@@ -171,12 +171,44 @@ dotnet ef database update PreviousMigrationName --project CrudPark.Infrastructur
 ```
 </CodeGroup>
 
-## Environment Variables
+## Application Settings
 
-You can override the connection string using environment variables:
+### Total Parking Spaces
+
+CrudPark requires the total number of parking spaces to calculate occupation percentages in dashboard metrics and reports. This is configured in `appsettings.json`:
+
+```json appsettings.json
+{
+  "AppSettings": {
+    "TotalParkingSpaces": 150
+  }
+}
+```
+
+<Info>
+  The `TotalParkingSpaces` value is used by `DashboardService` and `ReportsService` to calculate the `OccupationPercentage` metric. Set this to match your actual parking facility capacity.
+</Info>
+
+**Example Calculation:**
+- If 45 vehicles are currently inside and `TotalParkingSpaces` is 150:
+- Occupation percentage = (45 / 150) × 100 = 30%
+
+You can override this setting via environment variable:
 
 ```bash
+export AppSettings__TotalParkingSpaces=200
+```
+
+## Environment Variables
+
+You can override configuration settings using environment variables:
+
+```bash
+# Connection String
 export ConnectionStrings__DefaultConnection="Host=localhost;Database=Parking_App_JME;Username=postgres;Password=postgres;Port=5432"
+
+# Total Parking Spaces
+export AppSettings__TotalParkingSpaces=150
 ```
 
 The double underscore (`__`) is used to represent nested configuration sections in .NET.
