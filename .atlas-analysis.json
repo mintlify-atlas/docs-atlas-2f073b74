@@ -1,0 +1,97 @@
+{
+  "projectType": "api-service",
+  "projectName": "CrudPark",
+  "projectDescription": "A comprehensive parking management system API with membership tracking, payment processing, and reporting capabilities.",
+  "theme": "aspen",
+  "primaryColor": "#2563eb",
+  "lightColor": "#60a5fa",
+  "darkColor": "#1e40af",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/memberships",
+              "concepts/stays",
+              "concepts/payments",
+              "concepts/operators"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/database",
+              "configuration/email",
+              "configuration/deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "api/memberships",
+              "api/operators",
+              "api/rates",
+              "api/reports",
+              "api/dashboard"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Membership management with automated expiration notifications",
+    "Real-time parking stay tracking with entry/exit timestamps",
+    "Payment processing with multiple payment methods",
+    "Comprehensive reporting and analytics (daily income, occupation, membership vs guest)",
+    "Dashboard metrics and KPIs",
+    "CSV export functionality for reports",
+    "Email notifications for membership expiration",
+    "Clean Architecture with layered separation (API, Application, Core, Infrastructure)"
+  ],
+  "publicApiSurface": [
+    "POST /api/memberships - Create membership",
+    "GET /api/memberships - Get all memberships",
+    "GET /api/memberships/{id} - Get membership by ID",
+    "PUT /api/memberships/{id} - Update membership",
+    "DELETE /api/memberships/{id} - Delete membership",
+    "GET /api/operators - Get all operators",
+    "POST /api/operators - Create operator",
+    "GET /api/operators/{id} - Get operator by ID",
+    "PUT /api/operators/{id} - Update operator",
+    "DELETE /api/operators/{id} - Delete operator",
+    "GET /api/rates - Get all rates",
+    "GET /api/rates/{id} - Get rate by ID",
+    "POST /api/rates - Create rate",
+    "PUT /api/rates/{id} - Update rate",
+    "DELETE /api/rates/{id} - Delete rate",
+    "GET /api/reports/daily-income - Get daily income report",
+    "GET /api/reports/membership-vs-guest - Get membership vs guest report",
+    "GET /api/reports/occupation - Get occupation report",
+    "GET /api/reports/daily-income/export/csv - Export daily income report to CSV",
+    "GET /api/dashboard/metrics - Get dashboard metrics"
+  ]
+}
